@@ -1,0 +1,151 @@
+#! /usr/bin/env python3
+
+import json
+import os
+import subprocess
+
+import requests
+from bs4 import BeautifulSoup
+
+BASE_URL = "https://www.wikiart.org"
+DATA_DIR = "data"
+DOWNLOAD_DIR = DATA_DIR
+URL_JSON = "./python/urls.json"
+NEW_IMAGE_PATH = os.path.join(DOWNLOAD_DIR, "new-image.jpg")
+NEW_TEXTURE_PATH = os.path.join(DATA_DIR, "new-image.ppm")
+
+def fetch_artwork_page(url):
+    """
+    Fetch the HTML content of an artwork page.
+    """
+    response = requests.get(url)
+    if response.status_code == 200:
+        return response.text
+    else:
+        print(f"Failed to fetch page: {url}")
+        return None
+
+def extract_image_and_navigation(html):
+    """
+    Extract the image URL and navigation links from the page HTML.
+    """
+    soup = BeautifulSoup(html, 'html.parser')
+
+    # Find the image URL
+    image_tag = soup.find('img', itemprop='image')
+    image_url = image_tag['src'] if image_tag else None
+
+    # Find navigation links
+    next_link = None
+    prev_link = None
+
+    next_button = soup.find('a', onclick=lambda x: 'nextArtworkClick' in x if x else False)
+    prev_button = soup.find('a', onclick=lambda x: 'prevArtworkClick' in x if x else False)
+
+    if next_button:
+        next_link = BASE_URL + next_button['onclick'].split("', '")[-1].split("');")[0]
+    if prev_button:
+        prev_link = BASE_URL + prev_button['onclick'].split("', '")[-1].split("');")[0]
+
+    return image_url, next_link, prev_link
+
+def download_image(image_url, save_path):
+    """
+    Download an image from a URL and save it locally.
+    """
+    print(f"downloading from {image_url}")
+    response = requests.get(image_url, stream=True)
+    if response.status_code == 200:
+        # with open(save_path, 'wb') as file:
+        with open(NEW_IMAGE_PATH, 'wb') as file:
+            for chunk in response.iter_content(1024):
+                file.write(chunk)
+        print(f"Image saved to {save_path}")
+    else:
+        print(f"Failed to download image from {image_url}")
+
+def download():
+    # Starting URL (example)
+    with open(URL_JSON, "r") as file:
+        data = json.load(file)
+        start_url = data["url"]
+    # start_url = "https://www.wikiart.org/en/francis-bacon/portrait-of-henrietta-moraes-1963"
+
+    # Create a directory to save images
+    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+
+    # Step 1: Fetch the first artwork page
+    html = fetch_artwork_page(start_url)
+
+    if html:
+        # Step 2: Extract the image URL and navigation links
+        image_url, next_link, prev_link = extract_image_and_navigation(html)
+
+        # Step 3: Download the image
+        if image_url:
+            filename = os.path.join(DOWNLOAD_DIR, os.path.basename(image_url))
+            download_image(image_url, filename)
+
+        # Step 4: Optionally navigate to the next artwork
+        if next_link:
+            print(f"Next artwork: {next_link}")
+        if prev_link:
+            print(f"Previous artwork: {prev_link}")
+
+        with open(URL_JSON, "w") as file:
+            json.dump({ "url" : next_link }, file)
+
+        return True
+
+    return False
+
+def convert():
+    p = subprocess.run(["convert", NEW_IMAGE_PATH, "-compress", "none", NEW_TEXTURE_PATH])
+    if p.returncode != 0:
+        print("conversion failed")
+        return False
+    return True
+
+
+def main():
+    status = download()
+    if not status:
+        return 1
+    status = convert()
+    if not status:
+        return 1
+
+    return 0
+
+    # # Starting URL (example)
+    # with open("./python/urls.json", "r") as file:
+    #     data = json.load(file)
+    #     start_url = data["url"]
+    # # start_url = "https://www.wikiart.org/en/francis-bacon/portrait-of-henrietta-moraes-1963"
+
+    # # Create a directory to save images
+    # os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+
+    # # Step 1: Fetch the first artwork page
+    # html = fetch_artwork_page(start_url)
+
+    # if html:
+    #     # Step 2: Extract the image URL and navigation links
+    #     image_url, next_link, prev_link = extract_image_and_navigation(html)
+
+    #     # Step 3: Download the image
+    #     if image_url:
+    #         filename = os.path.join(DOWNLOAD_DIR, os.path.basename(image_url))
+    #         download_image(image_url, filename)
+
+    #     # Step 4: Optionally navigate to the next artwork
+    #     if next_link:
+    #         print(f"Next artwork: {next_link}")
+    #     if prev_link:
+    #         print(f"Previous artwork: {prev_link}")
+
+    #     with open("urls.json", "w") as file:
+    #         json.dump({ "url" : next_link }, file)
+
+if __name__ == "__main__":
+    main()

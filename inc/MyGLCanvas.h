@@ -18,9 +18,30 @@
 
 #include "gfxDefs.h"
 #include "ply.h"
-// #include "Room.h"
+#include "ArtManager.h"
 #include "ShaderManager.h"
 #include "TextureManager.h"
+
+// class SharedData {
+// public:
+// 	SharedData(const size_t buffer_size) {
+// 		this->buffer_size = buffer_size;
+// 		this->loading = false;
+// 		this->buffer_idx = 0; // this tells MyGLCanvas which texture to load to in the buffer
+// 	}
+// 	size_t get_buffer_size() { return this->buffer_size; }
+// 	size_t get_buffer_idx() { return this->buffer_idx; }
+// 	void set_buffer_idx(const size_t buffer_idx) { this->buffer_idx = buffer_idx; }
+// 	bool is_loading() { return this->loading; }
+// 	void set_loading() { this->loading = true; }
+// 	void unset_loading() { this->loading = false; }
+
+// private:
+// 	int buffer_size;
+// 	bool loading;
+// 	size_t buffer_idx;
+// 	// char colors[5][4096 * 4096 * 3]
+// };
 
 class MyGLCanvas : public Fl_Gl_Window {
 public:
@@ -62,10 +83,18 @@ private:
 	void resize(int x, int y, int w, int h);
 	void updateCamera(int width, int height);
 
+	void set_eye_position(const glm::vec3& e);
+	void maybe_load_art_ppm();
+	void maybe_bind_art();
+	int get_room_number(const glm::vec3& e);
+	size_t get_buffer_idx_from_room_number(const int n);
+
 	TextureManager* myTextureManager;
 	ShaderManager* myShaderManager;
-	ply* myObjectPLY;
+	ply* cube_ply;
 	ply* myEnvironmentPLY;
+	ArtManager* art_manager;
+	// SharedData* shared_data;
 
 	glm::mat4 perspectiveMatrix;
 

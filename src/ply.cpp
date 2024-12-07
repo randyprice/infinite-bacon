@@ -644,11 +644,11 @@ void ply::bindVBO(unsigned int programID) {
 	// Enable the attribute
 	glEnableVertexAttribArray(normal_attribute);
 
-	cout << "Created vbo successfully" << endl;
+	// cout << "Created vbo successfully" << endl;
 }
 
 void ply::renderVBO(unsigned int shaderProgramID) {
-	//bindVBO(shaderProgramID);
+	bindVBO(shaderProgramID);
 	glBindVertexArray(vao);
 	glDrawElements(GL_TRIANGLES, faceCount * 3, GL_UNSIGNED_INT, 0);
 

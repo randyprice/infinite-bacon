@@ -65,7 +65,7 @@ void TextureManager::deleteTexture(string textureName) {
 unsigned int TextureManager::getTextureID(std::string textureName) {
 	auto it = textures.find(textureName);
 	if (it == textures.end()) {  //ppm not found
-		cout << "texutre name not found!!!" << endl;
+		// cout << "texutre name not found!!!" << endl;
 		return -1;
 	}
 	return it->second->getTextureID();
