@@ -17,6 +17,14 @@ ArtManager::ArtManager() {
     }
 }
 
+float ArtManager::get_aspect_ratio(const size_t idx) {
+    if (this->heights[idx] == 0) {
+        return 1.0f;
+    }
+
+    return this->widths[idx] / static_cast<float>(this->heights[idx]);
+}
+
 void ArtManager::read_ppm(const size_t idx, const std::string& filename) {
     // Open an input file stream for reading a file
     std::ifstream file(filename.c_str());

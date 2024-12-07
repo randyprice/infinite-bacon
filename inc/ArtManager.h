@@ -15,6 +15,8 @@ public:
 	size_t get_buffer_idx() { return this->buffer_idx; }
 	void set_buffer_idx(const size_t buffer_idx) { this->buffer_idx = buffer_idx; }
 
+    float get_aspect_ratio(const size_t idx);
+
 	bool is_loading() { return this->loading; }
 	void set_loading() { this->loading = true; }
 	void unset_loading() { this->loading = false; }

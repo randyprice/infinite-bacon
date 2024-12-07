@@ -209,13 +209,14 @@ void MyGLCanvas::drawScene() {
 	glm::mat4 M_floor = T_floor * S_floor;
 
 	const float wall_l = 0.5f;
-	const float wall_w = 0.6 * floor_w;
-	const float wall_h = 10.0f;
+	const float wall_w = 0.3 * floor_w;
+	const float wall_h = wall_w * 2.0;
 	glm::mat4 S_wall = glm::scale(glm::mat4(1.0f), glm::vec3(wall_w, wall_h, wall_l));
 	glm::mat4 T_wall = glm::translate(
 		glm::mat4(1.0f),
 		glm::vec3(
-			(floor_w - wall_w) / 2.0f,
+			// (floor_w - wall_w) / 2.0f,
+			0.0f,
 			wall_h / 2.0f,
 			(floor_l - wall_l) / 2.0f
 		)
@@ -223,16 +224,19 @@ void MyGLCanvas::drawScene() {
 	glm::mat4 M_wall = T_wall * S_wall;
 
 	// TODO fix aspect ratio.
+	const int n = this->get_room_number(this->eyePosition);
+	size_t buffer_idx = get_buffer_idx_from_room_number(n);
+
 	const float painting_l = 0.1f;
 	const float painting_w = 0.5 * wall_w;
-	const float painting_h = painting_w;
+	const float painting_h = painting_w / this->art_manager->get_aspect_ratio(buffer_idx);
 	glm::mat4 S_painting = glm::scale(glm::mat4(1.0f), glm::vec3(painting_w, painting_h, painting_l));
 	glm::mat4 T_painting = glm::translate(
 		T_wall,
 		glm::vec3(
 			// (wall_w - painting_w) / 2.0f,
 			0.0f,
-			-(wall_h - painting_h) / 2.0f + 0.5f,
+			-(wall_h - painting_h) / 2.0f + eyePosition.y - painting_h / 2.0f,
 			-(painting_l + wall_l) / 2.0f
 		)
 	);
@@ -250,11 +254,10 @@ void MyGLCanvas::drawScene() {
 	glActiveTexture(GL_TEXTURE2);
 	glBindTexture(GL_TEXTURE_2D, myTextureManager->getTextureID("gallery_wall_texture"));
 
-	const int n = this->get_room_number(this->eyePosition);
 	const int painting_texture_offset = 3;
 
 	// Bind painting textures.
-	size_t buffer_idx = get_buffer_idx_from_room_number(n);
+	buffer_idx = get_buffer_idx_from_room_number(n);
 	glActiveTexture(GL_TEXTURE3);
 	if (this->art_manager->is_bound(buffer_idx)) {
 		// std::cout << "binding an art" << std::endl;
@@ -459,7 +462,7 @@ int MyGLCanvas::handle(int e) {
 	static int mouse_x;
 	static int mouse_y;
 	const float movement_speed = 0.2;
-	const float look_speed_mouse = 0.5f;
+	const float look_speed_mouse = 1.0f;
 	const float look_speed_key= 2.0f;
 	static int center_x = x() + w() / 2;
     static int center_y = y() + h() / 2;
