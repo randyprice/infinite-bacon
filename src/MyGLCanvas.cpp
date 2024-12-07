@@ -1,6 +1,7 @@
 #include <fstream>
 #include <iostream>
 #include <sys/mman.h>
+#include <sys/wait.h>
 #include <unistd.h>
 
 #include <Fl/Fl.H>
@@ -112,6 +113,26 @@ void MyGLCanvas::draw() {
 			firstTime = false;
 			initShaders();
 		}
+
+		// download and load initial images.
+		const std::string filename = "./data/new-image.ppm";
+		std::cout << "binding intitial paintings" << std::endl;
+		for (size_t ii = 0; ii < BUFFER_SIZE; ++ii) {
+			pid_t pid = fork();
+			if (pid == -1) {
+				std::cout << "fork failed" << std::endl;
+				exit(1);
+			} else if (pid == 0) {
+				this->art_manager->download_and_convert();
+				exit(0);
+			} else {
+				wait(nullptr);
+			}
+			// this->art_manager->download_and_convert();
+			this->art_manager->read_ppm(ii, filename);
+			this->art_manager->bind(ii);
+			std::remove(filename.c_str());
+		}
 	}
 
 	// Clear the buffer of colors in each bit plane.
@@ -134,16 +155,11 @@ void MyGLCanvas::maybe_load_art_ppm() {
 			std::cout << "fork failed" << std::endl;
 			exit(1);
 		} else if (pid == 0) {
-			// this->art_manager->test_set(buffer_idx);
-			const std::string texture_name = "art" + to_string(buffer_idx);
 			this->art_manager->read_ppm(buffer_idx, filename);
-			std::cout << "child process: " << static_cast<int>(this->art_manager->test_get()) << std::endl;
-			std::cout << "new texture: " << texture_name << std::endl;
 			std::remove(filename.c_str());
 			this->art_manager->unset_loading();
 			exit(0);
 		}
-		std::cout << "parent process: " << static_cast<int>(this->art_manager->test_get()) << std::endl;
 	}
 
 	file.close();
@@ -412,7 +428,7 @@ void MyGLCanvas::set_eye_position(const glm::vec3& e) {
 		if (pid == -1) {
 			std::cout << "fork failed" << std::endl;
 		} else if (pid == 0) {
-			this->art_manager->download();
+			this->art_manager->download_and_convert();
 			std::cout << "execvp failed somewhere" << std::endl;
 			exit(1);
 		}
@@ -442,7 +458,7 @@ int MyGLCanvas::handle(int e) {
 	// std::cout << "event " << e << std::endl;
 	static int mouse_x;
 	static int mouse_y;
-	const float movement_speed = 0.1;
+	const float movement_speed = 0.2;
 	const float look_speed_mouse = 0.5f;
 	const float look_speed_key= 2.0f;
 	static int center_x = x() + w() / 2;

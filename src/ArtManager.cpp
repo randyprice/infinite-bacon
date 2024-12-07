@@ -18,8 +18,6 @@ ArtManager::ArtManager() {
 }
 
 void ArtManager::read_ppm(const size_t idx, const std::string& filename) {
-    // textureID = -1;
-
     // Open an input file stream for reading a file
     std::ifstream file(filename.c_str());
     // If our file successfully opens, begin to process it.
@@ -28,7 +26,7 @@ void ArtManager::read_ppm(const size_t idx, const std::string& filename) {
         std::string line;
         // Our loop invariant is to continue reading input until
         // we reach the end of the file and it reads in a NULL character
-        std::cout << "Reading in ppm file: " << filename << std::endl;
+        std::cout << "reading ppm file " << filename << std::endl;
         // Our delimeter pointer which is used to store a single token in a given
         // string split up by some delimeter(s) specified in the strtok function
         char* delimeter_pointer;
@@ -42,12 +40,10 @@ void ArtManager::read_ppm(const size_t idx, const std::string& filename) {
             if (copy[0] == '#') {
                 continue;
             }
-
             // Read in the magic number
             if (iteration == 0) {
                 std::string magic_number = delimeter_pointer;
                 magic_number.erase(std::remove_if(magic_number.begin(), magic_number.end(), ::isspace), magic_number.end());
-                std::cout << "Magic Number: " << magic_number << std::endl;
                 if (magic_number.compare("P3") != 0) {
                     std::cout <<  "Incorrect image file format.Cannot load texutre" << std::endl;
                     break;
@@ -57,11 +53,9 @@ void ArtManager::read_ppm(const size_t idx, const std::string& filename) {
             else if (iteration == 1) {
                 int width = atoi(delimeter_pointer);
                 this->widths[idx] = width;
-                std::cout << "width: " << width << " ";
                 delimeter_pointer = strtok(NULL, " ");
                 int height = atoi(delimeter_pointer);
                 this->heights[idx] = height;
-                std::cout << "height: " << this->heights[idx] << std::endl;
                 if (width > MAX_ART_DIM || height > MAX_ART_DIM) {
                     std::cout << "image too large" << std::endl;
                     break;
@@ -71,8 +65,6 @@ void ArtManager::read_ppm(const size_t idx, const std::string& filename) {
                 }
             }
             else if (iteration == 2) {
-                std::cout << "color range: 0-" << delimeter_pointer << std::endl;
-
                 int num = this->widths[idx] * this->heights[idx] * 3;
                 for (int i = 0; i < num; i++) {
                     int value;
@@ -128,7 +120,7 @@ void ArtManager::unbind(const size_t idx) {
     this->bound[idx] = false;
 }
 
-void ArtManager::download() {
+void ArtManager::download_and_convert() {
     const char* args[] = {"python3", "./python/download-image.py", nullptr};
     execvp("python3", (char* const*)args);
 }

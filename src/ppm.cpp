@@ -42,7 +42,7 @@ ppm::ppm(std::string _fileName){
 	  std::string line;
 	  // Our loop invariant is to continue reading input until
 	  // we reach the end of the file and it reads in a NULL character
-	  std::cout << "Reading in ppm file: " << _fileName << std::endl;
+	  std::cout << "reading ppm file: " << _fileName << std::endl;
 	  // Our delimeter pointer which is used to store a single token in a given
 	  // string split up by some delimeter(s) specified in the strtok function
 	  char* delimeter_pointer;
@@ -61,7 +61,7 @@ ppm::ppm(std::string _fileName){
 		  if (iteration == 0) {
 			  magicNumber = delimeter_pointer;
 			  magicNumber.erase(std::remove_if(magicNumber.begin(), magicNumber.end(), ::isspace), magicNumber.end());
-			  std::cout << "Magic Number: " << magicNumber << std::endl;
+			//   std::cout << "Magic Number: " << magicNumber << std::endl;
 			  if (magicNumber.compare("P3") != 0) {
 				  std::cout <<  "Incorrect image file format.Cannot load texutre" << std::endl;
 				  break;
@@ -70,10 +70,10 @@ ppm::ppm(std::string _fileName){
 		  // Read in dimensions
 		  else if (iteration == 1) {
 			  width = atoi(delimeter_pointer);
-			  std::cout << "width: " << width << " ";
+			//   std::cout << "width: " << width << " ";
 			  delimeter_pointer = strtok(NULL, " ");
 			  height = atoi(delimeter_pointer);
-			  std::cout << "height: " << height << std::endl;
+			//   std::cout << "height: " << height << std::endl;
 			  // Allocate memory for the color array
 			  if (width > 0 && height > 0) {
 				  color = new char[width*height * 3];
@@ -88,7 +88,7 @@ ppm::ppm(std::string _fileName){
 			  }
 		  }
 		  else if (iteration == 2) {
-			  std::cout << "color range: 0-" << delimeter_pointer << std::endl;
+			//   std::cout << "color range: 0-" << delimeter_pointer << std::endl;
 
 			  int num = width * height * 3;
 			  for (int i = 0; i < num; i++) {

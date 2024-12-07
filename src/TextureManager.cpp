@@ -35,7 +35,7 @@ Precondition:
 Postcondition:
 =============================================== */
 void TextureManager::loadTexture(string textureName, string fileName) {
-	std::cout << "TextureManager::loadTexture" << std::endl;
+	// std::cout << "TextureManager::loadTexture" << std::endl;
 	ppm* curPPM = NULL;
 	auto it = textures.find(textureName);
 	if (it == textures.end()) {  //ppm not found
@@ -49,14 +49,14 @@ void TextureManager::loadTexture(string textureName, string fileName) {
 }
 
 void TextureManager::deleteTexture(string textureName) {
-	std::cout << "TextureManager::deleteTexture" << std::endl;
+	// std::cout << "TextureManager::deleteTexture" << std::endl;
 	ppm* curPPM = NULL;
-	std::cout << "TextureManager::deleteTexture : finding texture " << textureName << std::endl;
+	// std::cout << "TextureManager::deleteTexture : finding texture " << textureName << std::endl;
 	auto it = textures.find(textureName);
 	if (it != textures.end()) {  //ppm found
-		std::cout << "TextureManager::deleteTexture : texture found" << std::endl;
+		// std::cout << "TextureManager::deleteTexture : texture found" << std::endl;
 		delete it->second;
-		std::cout << "TextureManager::deleteTexture : texture freed" << std::endl;
+		// std::cout << "TextureManager::deleteTexture : texture freed" << std::endl;
 		textures.erase(it); //erasing the entry by key
 	}
 }

@@ -8,11 +8,13 @@ import requests
 from bs4 import BeautifulSoup
 
 BASE_URL = "https://www.wikiart.org"
-DATA_DIR = "data"
+DATA_DIR = "./data"
 DOWNLOAD_DIR = DATA_DIR
 URL_JSON = "./python/urls.json"
-NEW_IMAGE_PATH = os.path.join(DOWNLOAD_DIR, "new-image.jpg")
-NEW_TEXTURE_PATH = os.path.join(DATA_DIR, "new-image.ppm")
+IMAGE_NAME = "new-image"
+NEW_IMAGE_PATH = os.path.join(DOWNLOAD_DIR, f"{IMAGE_NAME}.jpg")
+TMP_TEXTURE_PATH = os.path.join(DATA_DIR, f"{IMAGE_NAME}-tmp.ppm")
+NEW_TEXTURE_PATH = os.path.join(DATA_DIR, f"{IMAGE_NAME}.ppm")
 
 def fetch_artwork_page(url):
     """
@@ -53,16 +55,16 @@ def download_image(image_url, save_path):
     """
     Download an image from a URL and save it locally.
     """
-    print(f"downloading from {image_url}")
+    print(f"downloading image from {image_url}")
     response = requests.get(image_url, stream=True)
     if response.status_code == 200:
         # with open(save_path, 'wb') as file:
         with open(NEW_IMAGE_PATH, 'wb') as file:
             for chunk in response.iter_content(1024):
                 file.write(chunk)
-        print(f"Image saved to {save_path}")
+        print(f"image saved to {save_path}")
     else:
-        print(f"Failed to download image from {image_url}")
+        print(f"failed to download image from {image_url}")
 
 def download():
     # Starting URL (example)
@@ -87,10 +89,10 @@ def download():
             download_image(image_url, filename)
 
         # Step 4: Optionally navigate to the next artwork
-        if next_link:
-            print(f"Next artwork: {next_link}")
-        if prev_link:
-            print(f"Previous artwork: {prev_link}")
+        # if next_link:
+        #     print(f"Next artwork: {next_link}")
+        # if prev_link:
+        #     print(f"Previous artwork: {prev_link}")
 
         with open(URL_JSON, "w") as file:
             json.dump({ "url" : next_link }, file)
@@ -100,10 +102,13 @@ def download():
     return False
 
 def convert():
-    p = subprocess.run(["convert", NEW_IMAGE_PATH, "-compress", "none", NEW_TEXTURE_PATH])
+    p = subprocess.run(["convert", NEW_IMAGE_PATH, "-compress", "none", TMP_TEXTURE_PATH])
     if p.returncode != 0:
         print("conversion failed")
         return False
+
+    os.rename(TMP_TEXTURE_PATH, NEW_TEXTURE_PATH)
+    print(f"converted image to {NEW_TEXTURE_PATH}")
     return True
 
 

@@ -9,7 +9,7 @@
 class ArtManager {
 public:
     ArtManager();
-    void download();
+    void download_and_convert();
 	size_t get_buffer_size() { return this->buffer_size; }
 
 	size_t get_buffer_idx() { return this->buffer_idx; }
