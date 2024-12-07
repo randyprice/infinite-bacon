@@ -3,10 +3,16 @@ PROJECT := a5
 BIN_DIR := bin
 INC_DIR := inc
 SRC_DIR := src
+SHADERS_DIR := shaders
+SHADERS_330_DIR := $(SHADERS_DIR)/330
+SHADERS_SRC_DIR := $(SHADERS_DIR)/src
 
 SRC := $(wildcard $(SRC_DIR)/*.cpp)
 OBJ := $(patsubst %.cpp,%.o,$(patsubst $(SRC_DIR)/%,$(BIN_DIR)/%,$(SRC)))
 HDR := $(wildcard $(INC_DIR)/*.h)
+
+SHADERS := $(wildcard $(SHADERS_330_DIR)/*)
+
 
 EXE := $(BIN_DIR)/$(PROJECT).out
 OS := $(shell uname)
@@ -32,6 +38,11 @@ $(BIN_DIR)/%.o: $(SRC_DIR)/%.cpp
 	@if [ ! -d $(BIN_DIR) ]; then mkdir $(BIN_DIR); fi
 	@$(CXX) $(CXXFLAGS) -pthread -c $^ -o $@
 
+$(SHADERS_330_DIR)/%: $(SHADERS_SRC_DIR)/%
+	@g++ -x c -E -P $^ -o $^.tmp
+	@echo "#version 330" | cat - $^.tmp > $@
+	@rm $^.tmp
+
 .PHONY: build
 build: $(EXE)
 
@@ -43,6 +54,12 @@ run: $(EXE)
 debug: $(EXE)
 	@ rm -f logs/debug.log
 	@./$(EXE) d
+
+.PHONY: shaders
+shaders: $(SHADERS)
+
+# @g++ -x c -E -P shaders/src/floor.frag -o shaders/src/floor-processed.frag
+# @echo "#version 330" | cat - shaders/src/floor-processed.frag > shaders/src/final-floor.frag
 
 .PHONY: clean
 clean:

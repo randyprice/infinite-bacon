@@ -87,6 +87,7 @@ private:
 	void maybe_load_art_ppm();
 	void maybe_bind_art();
 	int get_room_number(const glm::vec3& e);
+	void preprocess_shaders();
 	size_t get_buffer_idx_from_room_number(const int n);
 
 	TextureManager* myTextureManager;
@@ -99,6 +100,7 @@ private:
 	glm::mat4 perspectiveMatrix;
 
 	bool firstTime;
+	bool art_init;
 };
 
 #endif // !MYGLCANVAS_H

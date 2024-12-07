@@ -49,6 +49,7 @@ MyGLCanvas::MyGLCanvas(int x, int y, int w, int h, const char* l) : Fl_Gl_Window
 		-1,
 		0
 	);
+	art_init = false;
 
 	this->art_manager = new (mem) ArtManager();
 }
@@ -60,10 +61,28 @@ MyGLCanvas::~MyGLCanvas() {
 	delete myEnvironmentPLY;
 }
 
+void MyGLCanvas::preprocess_shaders() {
+	std::cout << "preprocessing shaders" << std::endl;
+	pid_t pid = fork();
+	if (pid < 0) {
+		std::cout << "fork failed" << std::endl;
+		exit(1);
+	} else if (pid == 0) {
+		const char* args[] = {"make", "shaders", nullptr};
+    	execvp("make", (char* const*)args);
+		std::cout << "execvp failed" << std::endl;
+		exit(1);
+	} else {
+		wait(nullptr);
+	}
+}
+
 void MyGLCanvas::initShaders() {
 	myTextureManager->loadTexture("environMap", "./data/sphere-map-market.ppm");
 	myTextureManager->loadTexture("gallery_floor_texture", "./data/gallery-floor.ppm");
 	myTextureManager->loadTexture("gallery_wall_texture", "./data/gallery-wall.ppm");
+
+	this->preprocess_shaders();
 
 	myShaderManager->addShaderProgram("gallery_floor_shaders", "shaders/330/gallery-floor.vert", "shaders/330/gallery-floor.frag");
 	cube_ply->buildArrays();
@@ -102,8 +121,14 @@ void MyGLCanvas::draw() {
 			firstTime = false;
 			initShaders();
 		}
+	}
 
-		// download and load initial images.
+	// Clear the buffer of colors in each bit plane.
+	// bit plane - A set of bits that are on or off (Think of a black and white image)
+	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+
+	// download and load initial images.
+	if (!this->art_init) {
 		const std::string filename = "./data/new-image.ppm";
 		std::cout << "binding intitial paintings" << std::endl;
 		for (size_t ii = 0; ii < BUFFER_SIZE; ++ii) {
@@ -122,11 +147,8 @@ void MyGLCanvas::draw() {
 			this->art_manager->bind(ii);
 			std::remove(filename.c_str());
 		}
+		this->art_init = true;
 	}
-
-	// Clear the buffer of colors in each bit plane.
-	// bit plane - A set of bits that are on or off (Think of a black and white image)
-	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
 	drawScene();
 	glFlush();
@@ -177,6 +199,7 @@ void MyGLCanvas::drawScene() {
 	// Do we have a new painting to load in?
 	// std::cout << "drawing" << std::endl;
 	glm::mat4 viewMatrix = glm::lookAt(eyePosition, eyePosition + lookVec, upVec);
+	glm::mat4 M_environment = glm::translate(glm::mat4(1.0f), eyePosition);
 		// glm::lookAt(eyePosition, lookatPoint, glm::vec3(0.0f, 1.0f, 0.0f));
 
 	// std::cout << "made view matrix" << std::endl;
@@ -379,24 +402,25 @@ void MyGLCanvas::drawScene() {
 	cube_ply->renderVBO(painting_shader);
 
 
-	// //second draw the enviroment sphere
-	// const GLuint environment_shader = myShaderManager->getShaderProgram("environmentShaders")->programID;
-	// glUseProgram(environment_shader);
+	// ENVIRONMENT ==============================================================
+	const GLuint environment_shader = myShaderManager->getShaderProgram("environmentShaders")->programID;
+	glUseProgram(environment_shader);
 
-	// //TODO: add variable binding
-	// glUniformMatrix4fv(glGetUniformLocation(environment_shader, "myModelMatrix"), 1, false, glm::value_ptr(modelMatrix));
-	// glUniformMatrix4fv(glGetUniformLocation(environment_shader, "myViewMatrix"), 1, false, glm::value_ptr(viewMatrix));
-	// glUniformMatrix4fv(glGetUniformLocation(environment_shader, "myPerspectiveMatrix"), 1, false, glm::value_ptr(perspectiveMatrix));
+	//TODO: add variable binding
+	glUniformMatrix4fv(glGetUniformLocation(environment_shader, "myModelMatrix"), 1, false, glm::value_ptr(modelMatrix));
+	glUniformMatrix4fv(glGetUniformLocation(environment_shader, "myViewMatrix"), 1, false, glm::value_ptr(viewMatrix));
+	glUniformMatrix4fv(glGetUniformLocation(environment_shader, "myPerspectiveMatrix"), 1, false, glm::value_ptr(perspectiveMatrix));
+	glUniformMatrix4fv(glGetUniformLocation(environment_shader, "M"), 1, false, glm::value_ptr(M_environment));
 
-	// glUniform1f(glGetUniformLocation(environment_shader, "sphereScale"), sphere_scale);
-	// glUniform1f(glGetUniformLocation(environment_shader, "sphereRadius"), sphere_radius);
-	// glUniform1f(glGetUniformLocation(environment_shader, "PI"), PI);
-	// glUniform1i(glGetUniformLocation(environment_shader, "environmentTextureMap"), 0);
+	// glUniform1f(glGetUniformLocation(environment_shader, "sphereScale"), 7.0);
+	// glUniform1f(glGetUniformLocation(environment_shader, "sphereRadius"), 0.5);
+	glUniform1f(glGetUniformLocation(environment_shader, "PI"), PI);
+	glUniform1i(glGetUniformLocation(environment_shader, "environmentTextureMap"), 0);
 
-	// glUniform3fv(glGetUniformLocation(environment_shader, "lightPos"), 1,  glm::value_ptr(lightPos));
-	// glUniform1i(glGetUniformLocation(environment_shader, "useDiffuse"), useDiffuse ? 1 : 0);
+	glUniform3fv(glGetUniformLocation(environment_shader, "lightPos"), 1,  glm::value_ptr(lightPos));
+	glUniform1i(glGetUniformLocation(environment_shader, "useDiffuse"), useDiffuse ? 1 : 0);
 
-	// myEnvironmentPLY->renderVBO(environment_shader);
+	myEnvironmentPLY->renderVBO(environment_shader);
 }
 
 
@@ -561,6 +585,7 @@ void MyGLCanvas::resize(int x, int y, int w, int h) {
 
 void MyGLCanvas::reloadShaders() {
 	myShaderManager->resetShaders();
+	this->preprocess_shaders();
 
 	myShaderManager->addShaderProgram("gallery_floor_shaders", "shaders/330/gallery-floor.vert", "shaders/330/gallery-floor.frag");
 	cube_ply->bindVBO(myShaderManager->getShaderProgram("gallery_floor_shaders")->programID);
