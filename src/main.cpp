@@ -39,6 +39,9 @@ public:
 	Fl_Button* reloadButton;
 	Fl_Button* useNormalMapButton;
 
+	Fl_Slider* fog_start_slider;
+	Fl_Slider* fog_end_slider;
+
 	MyGLCanvas* canvas;
 
 public:
@@ -283,6 +286,24 @@ MyAppWindow::MyAppWindow(int W, int H, const char* L) : Fl_Window(W, H, L) {
 
 	reloadButton = new Fl_Button(0, 0, pack->w() - 20, 20, "Reload");
 	reloadButton->callback(reloadCB, (void*)this);
+
+	Fl_Box* fog_start_text_box = new Fl_Box(0, 0, pack->w() - 20, 20, "fog_start");
+	fog_start_slider = new Fl_Value_Slider(0, 0, pack->w() - 20, 20, "");
+	fog_start_slider->align(FL_ALIGN_TOP);
+	fog_start_slider->type(FL_HOR_SLIDER);
+	fog_start_slider->bounds(0.0, 20.0);
+	fog_start_slider->step(1.0);
+	fog_start_slider->value(canvas->fog_start);
+	fog_start_slider->callback(floatCB, (void*)(&(canvas->fog_start)));
+
+	Fl_Box* fog_end_text_box = new Fl_Box(0, 0, pack->w() - 20, 20, "fog_end");
+	fog_end_slider = new Fl_Value_Slider(0, 0, pack->w() - 20, 20, "");
+	fog_end_slider->align(FL_ALIGN_TOP);
+	fog_end_slider->type(FL_HOR_SLIDER);
+	fog_end_slider->bounds(5.0, 30.0);
+	fog_end_slider->step(1.0);
+	fog_end_slider->value(canvas->fog_end);
+	fog_end_slider->callback(floatCB, (void*)(&(canvas->fog_end)));
 
 	packShaders->end();
 	packCol2->end();

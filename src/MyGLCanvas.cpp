@@ -31,6 +31,10 @@ MyGLCanvas::MyGLCanvas(int x, int y, int w, int h, const char* l) : Fl_Gl_Window
 	lightAngle = 0.0f;
 	textureBlend = 0.0f;
 
+	// Fog.
+	fog_start = 10.0f;
+	fog_end = 15.0f;
+
 	useDiffuse = false;
 
 	firstTime = true;
@@ -326,6 +330,10 @@ void MyGLCanvas::drawScene() {
 	glUniform3fv(glGetUniformLocation(gallery_floor_shader, "lightPos"), 1,  glm::value_ptr(lightPos));
 	glUniform1i(glGetUniformLocation(gallery_floor_shader, "useDiffuse"), useDiffuse ? 1 : 0);
 
+	// Fog.
+	glUniform1f(glGetUniformLocation(gallery_floor_shader, "fog_start"), fog_start);
+	glUniform1f(glGetUniformLocation(gallery_floor_shader, "fog_end"), fog_end);
+
 	// Center room.
 	glUniformMatrix4fv(glGetUniformLocation(gallery_floor_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, n * floor_l))* M_floor));
 	cube_ply->renderVBO(gallery_floor_shader);
@@ -336,6 +344,14 @@ void MyGLCanvas::drawScene() {
 
 	// +Z room.
 	glUniformMatrix4fv(glGetUniformLocation(gallery_floor_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, (n + 1) * floor_l)) * M_floor));
+	cube_ply->renderVBO(gallery_floor_shader);
+
+	// -2Z room.
+	glUniformMatrix4fv(glGetUniformLocation(gallery_floor_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, (n - 2) * floor_l)) * M_floor));
+	cube_ply->renderVBO(gallery_floor_shader);
+
+	// +2Z room.
+	glUniformMatrix4fv(glGetUniformLocation(gallery_floor_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, (n + 2) * floor_l)) * M_floor));
 	cube_ply->renderVBO(gallery_floor_shader);
 
 	// WALL ====================================================================
@@ -354,6 +370,10 @@ void MyGLCanvas::drawScene() {
 	// Diffuse lighting.
 	glUniform3fv(glGetUniformLocation(gallery_wall_shader, "lightPos"), 1,  glm::value_ptr(lightPos));
 	glUniform1i(glGetUniformLocation(gallery_wall_shader, "useDiffuse"), useDiffuse ? 1 : 0);
+
+	// Fog.
+	glUniform1f(glGetUniformLocation(gallery_wall_shader, "fog_start"), fog_start);
+	glUniform1f(glGetUniformLocation(gallery_wall_shader, "fog_end"), fog_end);
 
 	// Center room.
 	glUniformMatrix4fv(glGetUniformLocation(gallery_wall_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, n * floor_l))* M_wall));
@@ -382,6 +402,10 @@ void MyGLCanvas::drawScene() {
 	// Diffuse lighting.
 	glUniform3fv(glGetUniformLocation(painting_shader, "lightPos"), 1,  glm::value_ptr(lightPos));
 	glUniform1i(glGetUniformLocation(painting_shader, "useDiffuse"), useDiffuse ? 1 : 0);
+
+	// Fog.
+	glUniform1f(glGetUniformLocation(painting_shader, "fog_start"), fog_start);
+	glUniform1f(glGetUniformLocation(painting_shader, "fog_end"), fog_end);
 
 	// Center room.
 	glUniform1i(glGetUniformLocation(painting_shader, "room"), n);
@@ -416,6 +440,10 @@ void MyGLCanvas::drawScene() {
 	// glUniform1f(glGetUniformLocation(environment_shader, "sphereRadius"), 0.5);
 	glUniform1f(glGetUniformLocation(environment_shader, "PI"), PI);
 	glUniform1i(glGetUniformLocation(environment_shader, "environmentTextureMap"), 0);
+
+	// Fog.
+	glUniform1f(glGetUniformLocation(environment_shader, "fog_start"), fog_start);
+	glUniform1f(glGetUniformLocation(environment_shader, "fog_end"), fog_end);
 
 	glUniform3fv(glGetUniformLocation(environment_shader, "lightPos"), 1,  glm::value_ptr(lightPos));
 	glUniform1i(glGetUniformLocation(environment_shader, "useDiffuse"), useDiffuse ? 1 : 0);

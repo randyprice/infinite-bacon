@@ -57,6 +57,10 @@ public:
 	glm::vec3 lookVec;
 	glm::vec3 upVec;
 
+	// Fog.
+	float fog_start;
+	float fog_end;
+
 	int useDiffuse;
 	float lightAngle; //used to control where the light is coming from
 	int viewAngle;

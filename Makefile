@@ -11,7 +11,9 @@ SRC := $(wildcard $(SRC_DIR)/*.cpp)
 OBJ := $(patsubst %.cpp,%.o,$(patsubst $(SRC_DIR)/%,$(BIN_DIR)/%,$(SRC)))
 HDR := $(wildcard $(INC_DIR)/*.h)
 
-SHADERS := $(wildcard $(SHADERS_330_DIR)/*)
+SHADERS_SRC := $(wildcard $(SHADERS_330_DIR)/*.vert) $(wildcard $(SHADERS_330_DIR)/*.frag)
+SHADERS_INC := $(wildcard $(SHADERS_SRC_DIR)/*.glsl)
+SHADERS := $(SHADERS_SRC) $(SHADERS_INC)
 
 
 EXE := $(BIN_DIR)/$(PROJECT).out
@@ -38,10 +40,10 @@ $(BIN_DIR)/%.o: $(SRC_DIR)/%.cpp
 	@if [ ! -d $(BIN_DIR) ]; then mkdir $(BIN_DIR); fi
 	@$(CXX) $(CXXFLAGS) -pthread -c $^ -o $@
 
-$(SHADERS_330_DIR)/%: $(SHADERS_SRC_DIR)/%
-	@g++ -x c -E -P $^ -o $^.tmp
-	@echo "#version 330" | cat - $^.tmp > $@
-	@rm $^.tmp
+$(SHADERS_330_DIR)/%: $(SHADERS_SRC_DIR)/% $(SHADERS_INC)
+	@g++ -x c -E -P $< -o $<.tmp
+	@echo "#version 330" | cat - $<.tmp > $@
+	@rm $<.tmp
 
 .PHONY: build
 build: $(EXE)
@@ -64,3 +66,7 @@ shaders: $(SHADERS)
 .PHONY: clean
 clean:
 	@rm -rf $(EXE) $(BIN_DIR)/*.o *~ *.dSYM
+
+.PHONY: test
+test:
+	@echo $(SHADERS)

@@ -18,6 +18,9 @@ uniform float PI;
 uniform vec3 lightPos;
 uniform bool useDiffuse;
 
+uniform float fog_start;
+uniform float fog_end;
+
 // // Map a point in object space to the unit square.
 // vec2 to_unit_square(vec3 p) {
 //     float r = sphereRadius;
@@ -154,8 +157,8 @@ void main() {
         color,
         depth,
         vec3(0.7, 0.7, 0.7),
-        5.0,
-        10.0
+        fog_start,
+        fog_end
     );
     outputColor = vec4(final_color, 1.0);
     // vec2 uv = cube_to_unit_square();

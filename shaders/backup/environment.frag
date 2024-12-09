@@ -1,8 +1,8 @@
-#include "fog.glsl"
+#version 330
 
 uniform sampler2D environmentTextureMap;
-// uniform float sphereScale;
-// uniform float sphereRadius;
+uniform float sphereScale;
+uniform float sphereRadius;
 uniform vec3 lightPos;
 uniform bool useDiffuse;
 uniform float PI;
@@ -12,7 +12,7 @@ in vec3 fragPosition;
 out vec4 outputColor;
 
 vec2 textureLocation(vec3 p) {
-	float r = 0.5;
+	float r = sphereRadius;
     float th = atan(p.z, p.x);
     float u = th < 0 ? - th / (2 * PI):  1 - th / (2 * PI);
     float phi = asin(p.y / r);
@@ -24,7 +24,7 @@ vec2 textureLocation(vec3 p) {
 
 void main()
 {
-	vec3 p_pw = fragPosition * 30.0; // FIXME remove magic number
+	vec3 p_pw = fragPosition * sphereScale; // FIXME remove magic number
 	float d = 1.0;
 	bool environment_diffuse = false;
 	if (useDiffuse && environment_diffuse) {
@@ -33,6 +33,5 @@ void main()
 		d = clamp(dot(N_vw, L_vw), 0.0, 1.0);
 	}
 	vec2 uv = textureLocation(fragPosition);
-	// outputColor = d * texture(environmentTextureMap, uv);
-	outputColor = vec4(FOG_COLOR, 1.0);
+	outputColor = d * texture(environmentTextureMap, uv);
 }

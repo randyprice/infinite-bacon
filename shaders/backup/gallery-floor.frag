@@ -1,4 +1,4 @@
-#include "fog.glsl"
+#version 330
 
 in vec3 fragPosition;
 in vec3 fragNormal;
@@ -17,9 +17,6 @@ uniform float PI;
 
 uniform vec3 lightPos;
 uniform bool useDiffuse;
-
-uniform float fog_start;
-uniform float fog_end;
 
 // // Map a point in object space to the unit square.
 // vec2 to_unit_square(vec3 p) {
@@ -150,18 +147,8 @@ void main() {
     // outputColor = d * (textureBlend * obj_color + (1.0 - textureBlend) * env_color);
     // outputColor = vec4(fragPosition, 1.0);
     vec2 uv = cube_to_unit_square();
-    vec3 color = vec3(texture(texture_map, uv));
-    vec4 p_pw = myModelMatrix * vec4(fragPosition, 1.0);
-    float depth = -(myViewMatrix * p_pw).z;
-    vec3 final_color = apply_fog(
-        color,
-        depth,
-        vec3(0.7, 0.7, 0.7),
-        fog_start,
-        fog_end
-    );
-    outputColor = vec4(final_color, 1.0);
-    // outputColor = texture(texture_map, uv);
+    uv = uv * 3;
+    outputColor = texture(texture_map, uv);
     // outputColor = vec4(fragNormal, 1.0);
     // outputColor = vec4(1.0, 0.0, 0.0, 1.0);
 }
