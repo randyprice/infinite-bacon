@@ -3,6 +3,7 @@
 
 #include <iostream>
 #include <time.h>
+#include <vector>
 
 #include <glm/glm.hpp>
 #if defined(__APPLE__)
@@ -21,6 +22,13 @@
 #include "ArtManager.h"
 #include "ShaderManager.h"
 #include "TextureManager.h"
+
+enum CubePly {
+	GalleryFloor = 0,
+	GalleryWall,
+	Painting,
+	Max,
+};
 
 // class SharedData {
 // public:
@@ -97,7 +105,8 @@ private:
 
 	TextureManager* myTextureManager;
 	ShaderManager* myShaderManager;
-	ply* cube_ply;
+	std::vector<ply*> cubes;
+	// ply* cube_ply;
 	ply* myEnvironmentPLY;
 	ArtManager* art_manager;
 	// SharedData* shared_data;

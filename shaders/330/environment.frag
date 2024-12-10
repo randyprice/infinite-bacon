@@ -1,5 +1,6 @@
 #version 330
-vec3 FOG_COLOR = vec3(0.8f, 0.8f, 0.8f);
+const float FOG_RGB = 0.8f;
+vec3 FOG_COLOR = vec3(FOG_RGB, FOG_RGB, FOG_RGB);
 vec3 apply_fog(vec3 color, float depth, vec3 fog_color, float start, float end) {
     start = min(start, end);
     float fog_factor = clamp((end - depth) / (end - start), 0.0, 1.0);

@@ -648,7 +648,7 @@ void ply::bindVBO(unsigned int programID) {
 }
 
 void ply::renderVBO(unsigned int shaderProgramID) {
-	bindVBO(shaderProgramID);
+	// bindVBO(shaderProgramID);
 	glBindVertexArray(vao);
 	glDrawElements(GL_TRIANGLES, faceCount * 3, GL_UNSIGNED_INT, 0);
 

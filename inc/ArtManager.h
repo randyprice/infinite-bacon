@@ -1,6 +1,7 @@
 #ifndef ART_MANAGER_H
 #define ART_MANAGER_H
 
+#define DO_DOWNLOAD (false)
 #define NUM_ROOMS_AHEAD_TO_RENDER (2)
 #define NUM_RENDERED_ROOMS (2 * (NUM_ROOMS_AHEAD_TO_RENDER) + 1)
 #define NUM_PAINTINGS_PER_ROOM (2)

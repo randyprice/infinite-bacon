@@ -42,7 +42,12 @@ MyGLCanvas::MyGLCanvas(int x, int y, int w, int h, const char* l) : Fl_Gl_Window
 	myTextureManager = new TextureManager();
 	myShaderManager = new ShaderManager();
 
-	cube_ply = new ply("./data/cube.ply");
+	// cube_ply = new ply("./data/cube.ply");
+	this->cubes.reserve(CubePly::Max);
+	cubes[CubePly::GalleryFloor] = new ply("./data/cube.ply");
+	cubes[CubePly::GalleryWall] = new ply("./data/cube.ply");
+	cubes[CubePly::Painting] = new ply("./data/cube.ply");
+
 	myEnvironmentPLY = new ply("./data/sphere.ply");
 
 	ArtManager* mem = (ArtManager*)mmap(
@@ -61,7 +66,9 @@ MyGLCanvas::MyGLCanvas(int x, int y, int w, int h, const char* l) : Fl_Gl_Window
 MyGLCanvas::~MyGLCanvas() {
 	delete myTextureManager;
 	delete myShaderManager;
-	delete cube_ply;
+	for (auto cube : this->cubes) {
+		delete cube;
+	}
 	delete myEnvironmentPLY;
 }
 
@@ -89,18 +96,20 @@ void MyGLCanvas::initShaders() {
 	this->preprocess_shaders();
 
 	myShaderManager->addShaderProgram("gallery_floor_shaders", "shaders/330/gallery-floor.vert", "shaders/330/gallery-floor.frag");
-	cube_ply->buildArrays();
-	cube_ply->bindVBO(myShaderManager->getShaderProgram("gallery_floor_shaders")->programID);
+	cubes[CubePly::GalleryFloor]->buildArrays();
+	cubes[CubePly::GalleryFloor]->bindVBO(myShaderManager->getShaderProgram("gallery_floor_shaders")->programID);
 
 	myShaderManager->addShaderProgram("environmentShaders", "shaders/330/environment.vert", "shaders/330/environment.frag");
 	myEnvironmentPLY->buildArrays();
 	myEnvironmentPLY->bindVBO(myShaderManager->getShaderProgram("environmentShaders")->programID);
 
 	myShaderManager->addShaderProgram("gallery_wall_shaders", "shaders/330/gallery-wall.vert", "shaders/330/gallery-wall.frag");
-	cube_ply->bindVBO(myShaderManager->getShaderProgram("gallery_wall_shaders")->programID);
+	cubes[CubePly::GalleryWall]->buildArrays();
+	cubes[CubePly::GalleryWall]->bindVBO(myShaderManager->getShaderProgram("gallery_wall_shaders")->programID);
 
 	myShaderManager->addShaderProgram("painting_shaders", "shaders/330/painting.vert", "shaders/330/painting.frag");
-	cube_ply->bindVBO(myShaderManager->getShaderProgram("painting_shaders")->programID);
+	cubes[CubePly::Painting]->buildArrays();
+	cubes[CubePly::Painting]->bindVBO(myShaderManager->getShaderProgram("painting_shaders")->programID);
 }
 
 constexpr float ROOM_L = 10.0f;
@@ -136,6 +145,7 @@ void MyGLCanvas::draw() {
 		std::cout << "binding intitial paintings" << std::endl;
 		for (size_t ii = 0; ii < NUM_RENDERED_PAINTINGS; ++ii) {
 			std::cout << "binding painting " << ii << std::endl;
+#if DO_DOWNLOAD
 			const std::string filename = "./data/new-image" + std::to_string(ii) + ".ppm";
 			pid_t pid = fork();
 			if (pid == -1) {
@@ -150,6 +160,11 @@ void MyGLCanvas::draw() {
 				this->art_manager->bind(ii);
 				std::remove(filename.c_str());
 			}
+#else
+			const std::string filename = "./data/flowers.ppm";
+			this->art_manager->read_ppm(ii, filename);
+			this->art_manager->bind(ii);
+#endif
 		}
 		std::cout << "done binding initial paintings" << std::endl;
 		this->art_init = true;
@@ -267,11 +282,14 @@ unsigned int get_gl_texture_id(const size_t num) {
 }
 
 void MyGLCanvas::drawScene() {
+	glEnable(GL_DEPTH_TEST);
+#if DO_DOWNLOAD
 	this->maybe_download_art();
 	// std::cout << "drawScene - maybe_bind_art" << std::endl;
 	this->maybe_bind_art();
 	// std::cout << "drawScene - maybe_load_art_ppm" << std::endl;
 	this->maybe_load_art_ppm();
+#endif
 	// Do we have a new painting to load in?
 	// std::cout << "drawing" << std::endl;
 	glm::mat4 viewMatrix = glm::lookAt(eyePosition, eyePosition + lookVec, upVec);
@@ -310,6 +328,10 @@ void MyGLCanvas::drawScene() {
 		)
 	);
 	glm::mat4 M_wall = T_wall * S_wall;
+
+	const float doorway_w = 0.2 * floor_l;
+	const float doorway_l = wall_l;
+	const float doorway_h = wall_h;
 
 	const int current_room_number = this->get_room_number(this->eyePosition);
 	const float painting_l = 0.1f;
@@ -360,6 +382,24 @@ void MyGLCanvas::drawScene() {
 		}
 	}
 
+	// ENVIRONMENT ==============================================================
+	const GLuint environment_shader = myShaderManager->getShaderProgram("environmentShaders")->programID;
+	glUseProgram(environment_shader);
+	glUniformMatrix4fv(glGetUniformLocation(environment_shader, "myModelMatrix"), 1, false, glm::value_ptr(modelMatrix));
+	glUniformMatrix4fv(glGetUniformLocation(environment_shader, "myViewMatrix"), 1, false, glm::value_ptr(viewMatrix));
+	glUniformMatrix4fv(glGetUniformLocation(environment_shader, "myPerspectiveMatrix"), 1, false, glm::value_ptr(perspectiveMatrix));
+	glUniformMatrix4fv(glGetUniformLocation(environment_shader, "M"), 1, false, glm::value_ptr(M_environment));
+	// glUniform1f(glGetUniformLocation(environment_shader, "sphereScale"), 7.0);
+	// glUniform1f(glGetUniformLocation(environment_shader, "sphereRadius"), 0.5);
+	glUniform1f(glGetUniformLocation(environment_shader, "PI"), PI);
+	glUniform1i(glGetUniformLocation(environment_shader, "environmentTextureMap"), 0);
+	// Fog.
+	glUniform1f(glGetUniformLocation(environment_shader, "fog_start"), fog_start);
+	glUniform1f(glGetUniformLocation(environment_shader, "fog_end"), fog_end);
+	glUniform3fv(glGetUniformLocation(environment_shader, "lightPos"), 1,  glm::value_ptr(lightPos));
+	glUniform1i(glGetUniformLocation(environment_shader, "useDiffuse"), useDiffuse ? 1 : 0);
+	myEnvironmentPLY->renderVBO(environment_shader);
+
 	// GALLERY FLOOR ===========================================================
 	const GLuint gallery_floor_shader = myShaderManager->getShaderProgram("gallery_floor_shaders")->programID;
 	glUseProgram(gallery_floor_shader);
@@ -379,7 +419,7 @@ void MyGLCanvas::drawScene() {
 	for (size_t ii = 0; ii < NUM_RENDERED_ROOMS; ++ii) {
 		const int room_number = current_room_number - NUM_ROOMS_AHEAD_TO_RENDER + static_cast<int>(ii);
 		glUniformMatrix4fv(glGetUniformLocation(gallery_floor_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_floor));
-		cube_ply->renderVBO(gallery_floor_shader);
+		cubes[CubePly::GalleryFloor]->renderVBO(gallery_floor_shader);
 	}
 
 	// WALL ====================================================================
@@ -398,11 +438,16 @@ void MyGLCanvas::drawScene() {
 	// Fog.
 	glUniform1f(glGetUniformLocation(gallery_wall_shader, "fog_start"), fog_start);
 	glUniform1f(glGetUniformLocation(gallery_wall_shader, "fog_end"), fog_end);
+	// glDepthMask(GL_FALSE);
+	glEnable(GL_BLEND);
+	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 	for (size_t ii = 0; ii < NUM_RENDERED_ROOMS; ++ii) {
 		const int room_number = current_room_number - NUM_ROOMS_AHEAD_TO_RENDER + static_cast<int>(ii);
 		glUniformMatrix4fv(glGetUniformLocation(gallery_wall_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_wall));
-		cube_ply->renderVBO(gallery_wall_shader);
+		cubes[CubePly::GalleryWall]->renderVBO(gallery_wall_shader);
 	}
+	glDisable(GL_BLEND);
+	// glDepthMask(GL_TRUE);
 
 	// PAINTING ====================================================================
 	const GLuint painting_shader = myShaderManager->getShaderProgram("painting_shaders")->programID;
@@ -426,27 +471,9 @@ void MyGLCanvas::drawScene() {
 			const size_t painting_idx = NUM_PAINTINGS_PER_ROOM * ii + jj;
 			glUniform1i(glGetUniformLocation(painting_shader, "texture_map"), static_cast<int>(painting_texture_offset + painting_idx));
 			glUniformMatrix4fv(glGetUniformLocation(painting_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_painting[painting_idx]));
-			cube_ply->renderVBO(painting_shader);
+			cubes[CubePly::Painting]->renderVBO(painting_shader);
 		}
 	}
-
-	// ENVIRONMENT ==============================================================
-	const GLuint environment_shader = myShaderManager->getShaderProgram("environmentShaders")->programID;
-	glUseProgram(environment_shader);
-	glUniformMatrix4fv(glGetUniformLocation(environment_shader, "myModelMatrix"), 1, false, glm::value_ptr(modelMatrix));
-	glUniformMatrix4fv(glGetUniformLocation(environment_shader, "myViewMatrix"), 1, false, glm::value_ptr(viewMatrix));
-	glUniformMatrix4fv(glGetUniformLocation(environment_shader, "myPerspectiveMatrix"), 1, false, glm::value_ptr(perspectiveMatrix));
-	glUniformMatrix4fv(glGetUniformLocation(environment_shader, "M"), 1, false, glm::value_ptr(M_environment));
-	// glUniform1f(glGetUniformLocation(environment_shader, "sphereScale"), 7.0);
-	// glUniform1f(glGetUniformLocation(environment_shader, "sphereRadius"), 0.5);
-	glUniform1f(glGetUniformLocation(environment_shader, "PI"), PI);
-	glUniform1i(glGetUniformLocation(environment_shader, "environmentTextureMap"), 0);
-	// Fog.
-	glUniform1f(glGetUniformLocation(environment_shader, "fog_start"), fog_start);
-	glUniform1f(glGetUniformLocation(environment_shader, "fog_end"), fog_end);
-	glUniform3fv(glGetUniformLocation(environment_shader, "lightPos"), 1,  glm::value_ptr(lightPos));
-	glUniform1i(glGetUniformLocation(environment_shader, "useDiffuse"), useDiffuse ? 1 : 0);
-	myEnvironmentPLY->renderVBO(environment_shader);
 }
 
 
@@ -612,25 +639,27 @@ void MyGLCanvas::reloadShaders() {
 	this->preprocess_shaders();
 
 	myShaderManager->addShaderProgram("gallery_floor_shaders", "shaders/330/gallery-floor.vert", "shaders/330/gallery-floor.frag");
-	cube_ply->bindVBO(myShaderManager->getShaderProgram("gallery_floor_shaders")->programID);
+	cubes[CubePly::GalleryFloor]->bindVBO(myShaderManager->getShaderProgram("gallery_floor_shaders")->programID);
 
 	myShaderManager->addShaderProgram("environmentShaders", "shaders/330/environment.vert", "shaders/330/environment.frag");
 	myEnvironmentPLY->bindVBO(myShaderManager->getShaderProgram("environmentShaders")->programID);
 
 	myShaderManager->addShaderProgram("gallery_wall_shaders", "shaders/330/gallery-wall.vert", "shaders/330/gallery-wall.frag");
-	cube_ply->bindVBO(myShaderManager->getShaderProgram("gallery_wall_shaders")->programID);
+	cubes[CubePly::GalleryWall]->bindVBO(myShaderManager->getShaderProgram("gallery_wall_shaders")->programID);
 
 	myShaderManager->addShaderProgram("painting_shaders", "shaders/330/painting.vert", "shaders/330/painting.frag");
-	cube_ply->bindVBO(myShaderManager->getShaderProgram("painting_shaders")->programID);
+	cubes[CubePly::Painting]->bindVBO(myShaderManager->getShaderProgram("painting_shaders")->programID);
 
 	invalidate();
 }
 
 void MyGLCanvas::loadPLY(std::string filename) {
-	delete cube_ply;
-	cube_ply = new ply(filename);
-	cube_ply->buildArrays();
-	cube_ply->bindVBO(myShaderManager->getShaderProgram("gallery_floor_shaders")->programID);
+	// for (auto cube : this->cubes) {
+	// 	delete cube;
+	// }
+	// cube_ply = new ply(filename);
+	// cube_ply->buildArrays();
+	// cube_ply->bindVBO(myShaderManager->getShaderProgram("gallery_floor_shaders")->programID);
 }
 
 void MyGLCanvas::loadEnvironmentTexture(std::string filename) {
