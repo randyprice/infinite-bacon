@@ -9,10 +9,14 @@
 #include "ArtManager.h"
 
 ArtManager::ArtManager() {
-    this->buffer_size = BUFFER_SIZE;
-    this->loading = false;
-    this->buffer_idx = 0; // this tells MyGLCanvas which texture to load to in the buffer
-    for (size_t ii = 0; ii < BUFFER_SIZE; ++ii) {
+    this->buffer_size = NUM_RENDERED_PAINTINGS;
+    this->loading_ppm = false;
+    // this tells MyGLCanvas which texture to load to in the buffer
+    for (size_t ii = 0; ii < NUM_PAINTINGS_PER_ROOM; ++ii) {
+        this->buffer_idxs[ii] = ii;
+        this->should_download_[ii] = false;
+    }
+    for (size_t ii = 0; ii < NUM_RENDERED_PAINTINGS; ++ii) {
         this->bound[ii] = false;
     }
 }
@@ -128,7 +132,9 @@ void ArtManager::unbind(const size_t idx) {
     this->bound[idx] = false;
 }
 
-void ArtManager::download_and_convert() {
-    const char* args[] = {"python3", "./python/download-image.py", nullptr};
+void ArtManager::download_and_convert(const size_t ii) {
+    const char* args[] = {"python3", "./python/download-image.py", std::to_string(ii).c_str(), nullptr};
     execvp("python3", (char* const*)args);
+    std::cout << "execvp failed" << std::endl;
+    exit(1);
 }

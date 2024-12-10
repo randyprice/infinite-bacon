@@ -1,5 +1,6 @@
 #! /usr/bin/env python3
 
+import argparse
 import json
 import os
 import subprocess
@@ -11,10 +12,11 @@ BASE_URL = "https://www.wikiart.org"
 DATA_DIR = "./data"
 DOWNLOAD_DIR = DATA_DIR
 URL_JSON = "./python/urls.json"
-IMAGE_NAME = "new-image"
-NEW_IMAGE_PATH = os.path.join(DOWNLOAD_DIR, f"{IMAGE_NAME}.jpg")
-TMP_TEXTURE_PATH = os.path.join(DATA_DIR, f"{IMAGE_NAME}-tmp.ppm")
-NEW_TEXTURE_PATH = os.path.join(DATA_DIR, f"{IMAGE_NAME}.ppm")
+
+IMAGE_NAME = None
+NEW_IMAGE_PATH = None
+TMP_TEXTURE_PATH = None
+NEW_TEXTURE_PATH = None
 
 def fetch_artwork_page(url):
     """
@@ -111,8 +113,26 @@ def convert():
     print(f"converted image to {NEW_TEXTURE_PATH}")
     return True
 
+def parse_args() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        "download-image"
+    )
+    parser.add_argument("n", type=int)
+
+    return parser.parse_args()
 
 def main():
+    global IMAGE_NAME
+    global NEW_IMAGE_PATH
+    global TMP_TEXTURE_PATH
+    global NEW_TEXTURE_PATH
+    args = parse_args()
+    IMAGE_NAME = f"new-image{args.n}"
+    NEW_IMAGE_PATH = os.path.join(DOWNLOAD_DIR, f"{IMAGE_NAME}.jpg")
+    TMP_TEXTURE_PATH = os.path.join(DATA_DIR, f"{IMAGE_NAME}-tmp.ppm")
+    NEW_TEXTURE_PATH = os.path.join(DATA_DIR, f"{IMAGE_NAME}.ppm")
+
+
     status = download()
     if not status:
         return 1
@@ -120,6 +140,7 @@ def main():
     if not status:
         return 1
 
+    os.remove(NEW_IMAGE_PATH)
     return 0
 
     # # Starting URL (example)

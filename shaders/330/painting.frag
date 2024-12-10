@@ -82,7 +82,7 @@ vec2 cube_to_unit_square() {
 }
 void main() {
     vec2 uv = cube_to_unit_square();
-    vec3 color = vec3(texture(texture_map, vec2(uv.x, 1 - uv.y)));
+    vec3 color = vec3(texture(texture_map, vec2(1 - uv.x, 1 - uv.y)));
     vec4 p_pw = myModelMatrix * vec4(fragPosition, 1.0);
     float depth = -(myViewMatrix * p_pw).z;
     vec3 final_color = apply_fog(

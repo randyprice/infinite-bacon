@@ -90,6 +90,7 @@ private:
 	void set_eye_position(const glm::vec3& e);
 	void maybe_load_art_ppm();
 	void maybe_bind_art();
+	void maybe_download_art();
 	int get_room_number(const glm::vec3& e);
 	void preprocess_shaders();
 	size_t get_buffer_idx_from_room_number(const int n);

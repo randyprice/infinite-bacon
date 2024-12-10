@@ -133,24 +133,25 @@ void MyGLCanvas::draw() {
 
 	// download and load initial images.
 	if (!this->art_init) {
-		const std::string filename = "./data/new-image.ppm";
 		std::cout << "binding intitial paintings" << std::endl;
-		for (size_t ii = 0; ii < BUFFER_SIZE; ++ii) {
+		for (size_t ii = 0; ii < NUM_RENDERED_PAINTINGS; ++ii) {
+			std::cout << "binding painting " << ii << std::endl;
+			const std::string filename = "./data/new-image" + std::to_string(ii) + ".ppm";
 			pid_t pid = fork();
 			if (pid == -1) {
 				std::cout << "fork failed" << std::endl;
 				exit(1);
 			} else if (pid == 0) {
-				this->art_manager->download_and_convert();
+				this->art_manager->download_and_convert(ii);
 				exit(1);
 			} else {
 				wait(nullptr);
+				this->art_manager->read_ppm(ii, filename);
+				this->art_manager->bind(ii);
+				std::remove(filename.c_str());
 			}
-			// this->art_manager->download_and_convert();
-			this->art_manager->read_ppm(ii, filename);
-			this->art_manager->bind(ii);
-			std::remove(filename.c_str());
 		}
+		std::cout << "done binding initial paintings" << std::endl;
 		this->art_init = true;
 	}
 
@@ -158,47 +159,118 @@ void MyGLCanvas::draw() {
 	glFlush();
 }
 
-void MyGLCanvas::maybe_load_art_ppm() {
-	std::string filename = "./data/new-image.ppm";
-	std::ifstream file(filename);
-	if (file.good() && !this->art_manager->is_loading()) {
-		this->art_manager->set_loading();
-		const size_t buffer_idx = this->art_manager->get_buffer_idx();
-		this->art_manager->unbind(buffer_idx);
-		pid_t pid = fork();
-		if (pid < 0) {
-			std::cout << "fork failed" << std::endl;
-			exit(1);
-		} else if (pid == 0) {
-			this->art_manager->read_ppm(buffer_idx, filename);
-			std::remove(filename.c_str());
-			this->art_manager->unset_loading();
-			exit(0);
+void MyGLCanvas::maybe_download_art() {
+	for (size_t ii = 0; ii < NUM_PAINTINGS_PER_ROOM; ++ii) {
+		if (!this->art_manager->is_downloading_image() && this->art_manager->should_download(ii)) {
+			this->art_manager->set_downloading_image();
+			this->art_manager->unset_should_download(ii);
+			pid_t pid = fork();
+			if (pid == -1) {
+				std::cout << "fork failed" << std::endl;
+				exit(1);
+			} else if (pid == 0) {
+				this->art_manager->download_and_convert(ii);
+			}
 		}
 	}
+}
 
-	file.close();
+void MyGLCanvas::maybe_load_art_ppm() {
+	const std::array<size_t, NUM_PAINTINGS_PER_ROOM> buffer_idxs = this->art_manager->get_buffer_idxs();
+	for (size_t ii = 0; ii < NUM_PAINTINGS_PER_ROOM; ++ii) {
+		const size_t buffer_idx = buffer_idxs[ii];
+		std::string filename = "./data/new-image" + std::to_string(ii) + ".ppm";
+		std::ifstream file(filename);
+		if (file.good() && !this->art_manager->is_loading_ppm()) {
+			// TODO this might be a bad idea.
+			this->art_manager->unset_downloading_image();
+			this->art_manager->set_loading_ppm();
+			this->art_manager->unbind(buffer_idx);
+			pid_t pid = fork();
+			if (pid < 0) {
+				std::cout << "fork failed" << std::endl;
+				exit(1);
+			} else if (pid == 0) {
+				this->art_manager->read_ppm(buffer_idx, filename);
+				std::remove(filename.c_str());
+				this->art_manager->unset_loading_ppm();
+				exit(0);
+			}
+		}
+		file.close();
+	}
+
 }
 
 void MyGLCanvas::maybe_bind_art() {
-	// TODO this can be less restrictive - don't bind art on the active buffer idx.
-	if (this->art_manager->is_loading()) {
-		return;
-	}
-	for (size_t ii = 0; ii < BUFFER_SIZE; ++ii) {
-		if (!this->art_manager->is_bound(ii)) {
-			this->art_manager->bind(ii);
+	const std::array<size_t, NUM_PAINTINGS_PER_ROOM> buffer_idxs = this->art_manager->get_buffer_idxs();
+	for (size_t ii = 0; ii < NUM_PAINTINGS_PER_ROOM; ++ii) {
+		const size_t buffer_idx = buffer_idxs[ii];
+		if (!this->art_manager->is_loading_ppm() && !this->art_manager->is_bound(buffer_idx)) {
+			this->art_manager->bind(buffer_idx);
 		}
 	}
 }
 
+
+// FIXME return instead a list of indices.
+// For 2 paintings per room:
+// 0 -> { 0, 1 }
+// 1 -> { 2, 3 }
+// etc
 size_t MyGLCanvas::get_buffer_idx_from_room_number(const int n) {
+	// Step 1: translate room number to range (0, BUFFER_SIZE / PAINTINGS_PER_ROOM).
+	//    this is the "block" we're in.
+	// Step 2: start index is PAINTINGS_PER_ROOM * block.
+	// Step 3: for ii in (start_index, start_index + PAINTINGS_PER_ROOM) ...
+	//    ^ return that array
 	const int buffer_size = this->art_manager->get_buffer_size();
 	return static_cast<size_t>(((n % buffer_size) + buffer_size) % buffer_size);
 }
 
+// FIXME rename PAINTINGS_PER_ROOM
+std::array<size_t, NUM_PAINTINGS_PER_ROOM> get_buffer_idxs_from_room_number(const int n) {
+	const size_t start_block = static_cast<size_t>(((n % NUM_RENDERED_ROOMS) + NUM_RENDERED_ROOMS) % NUM_RENDERED_ROOMS);
+	std::array<size_t, NUM_PAINTINGS_PER_ROOM> buffer_idxs;
+	for (size_t ii = 0; ii < NUM_PAINTINGS_PER_ROOM; ++ii) {
+		buffer_idxs[ii] = NUM_PAINTINGS_PER_ROOM * start_block + ii;
+	}
+	return buffer_idxs;
+}
+
+unsigned int get_gl_texture_id(const size_t num) {
+	switch (num) {
+		case 0: return GL_TEXTURE0;
+		case 1: return GL_TEXTURE1;
+		case 2: return GL_TEXTURE2;
+		case 3: return GL_TEXTURE3;
+		case 4: return GL_TEXTURE4;
+		case 5: return GL_TEXTURE5;
+		case 6: return GL_TEXTURE6;
+		case 7: return GL_TEXTURE7;
+		case 8: return GL_TEXTURE8;
+		case 9: return GL_TEXTURE9;
+		case 10: return GL_TEXTURE10;
+		case 11: return GL_TEXTURE11;
+		case 12: return GL_TEXTURE12;
+		case 13: return GL_TEXTURE13;
+		case 14: return GL_TEXTURE14;
+		case 15: return GL_TEXTURE15;
+		case 16: return GL_TEXTURE16;
+		case 17: return GL_TEXTURE17;
+		case 18: return GL_TEXTURE18;
+		case 19: return GL_TEXTURE19;
+		case 20: return GL_TEXTURE20;
+		case 21: return GL_TEXTURE21;
+		default: { std::cout << "texture num too big!" << std::endl; exit(1); }
+	}
+}
+
 void MyGLCanvas::drawScene() {
+	this->maybe_download_art();
+	// std::cout << "drawScene - maybe_bind_art" << std::endl;
 	this->maybe_bind_art();
+	// std::cout << "drawScene - maybe_load_art_ppm" << std::endl;
 	this->maybe_load_art_ppm();
 	// Do we have a new painting to load in?
 	// std::cout << "drawing" << std::endl;
@@ -239,24 +311,29 @@ void MyGLCanvas::drawScene() {
 	);
 	glm::mat4 M_wall = T_wall * S_wall;
 
-	// TODO fix aspect ratio.
-	const int n = this->get_room_number(this->eyePosition);
-	size_t buffer_idx = get_buffer_idx_from_room_number(n);
-
+	const int current_room_number = this->get_room_number(this->eyePosition);
 	const float painting_l = 0.1f;
 	const float painting_w = 0.5 * wall_w;
-	std::array<glm::mat4, 2 * (BUFFER_SIZE - 2)> M_painting;
-
-	for (size_t ii = 0; ii < M_painting.size() / 2; ++ii) {
-		const size_t buffer_idx = get_buffer_idx_from_room_number(n + static_cast<int>(ii) - 1);
-		const float painting_h = painting_w / this->art_manager->get_aspect_ratio(buffer_idx);
-		const glm::mat4 S_painting = glm::scale(glm::mat4(1.0f), glm::vec3(painting_w, painting_h, painting_l));
-		const glm::mat4 T_painting1 = glm::translate(T_wall,glm::vec3(0.0f, -(wall_h - painting_h) / 2.0f + eyePosition.y - painting_h / 2.0f, -(painting_l + wall_l) / 2.0f));
-		M_painting[2 * ii] = T_painting1 * S_painting;
-		const glm::mat4 T_painting2 = glm::translate(T_wall,glm::vec3(0.0f, -(wall_h - painting_h) / 2.0f + eyePosition.y - painting_h / 2.0f, (painting_l + wall_l) / 2.0f));
-		M_painting[2 * ii + 1] = T_painting2 * S_painting;
+	std::array<glm::mat4, NUM_RENDERED_PAINTINGS> M_painting;
+	for (size_t ii = 0; ii < NUM_RENDERED_ROOMS; ++ii) {
+		const int room_number = current_room_number - NUM_ROOMS_AHEAD_TO_RENDER + static_cast<int>(ii);
+		const std::array<size_t, NUM_PAINTINGS_PER_ROOM> buffer_idxs = get_buffer_idxs_from_room_number(room_number);
+		for (size_t jj = 0; jj < NUM_PAINTINGS_PER_ROOM; ++jj) {
+			const size_t buffer_idx = buffer_idxs[jj];
+			const float painting_h = painting_w / this->art_manager->get_aspect_ratio(buffer_idx);
+			const glm::mat4 S_painting = glm::scale(glm::mat4(1.0f), glm::vec3(painting_w, painting_h, painting_l));
+			glm::mat4 T_painting;
+			if (jj == 0) {
+				T_painting = glm::translate(T_wall,glm::vec3(0.0f, -(wall_h - painting_h) / 2.0f + eyePosition.y - painting_h / 2.0f, -(painting_l + wall_l) / 2.0f));
+			} else if (jj == 1) {
+				T_painting = glm::translate(T_wall,glm::vec3(0.0f, -(wall_h - painting_h) / 2.0f + eyePosition.y - painting_h / 2.0f, (painting_l + wall_l) / 2.0f));
+			}
+			const size_t painting_idx = NUM_PAINTINGS_PER_ROOM * ii + jj;
+			M_painting[painting_idx] = T_painting * S_painting;
+		}
 	}
 
+	// BIND TEXTURES ===========================================================
 	glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 	glEnable(GL_TEXTURE_2D);
 	glActiveTexture(GL_TEXTURE0);
@@ -265,175 +342,110 @@ void MyGLCanvas::drawScene() {
 	glBindTexture(GL_TEXTURE_2D, myTextureManager->getTextureID("gallery_floor_texture"));
 	glActiveTexture(GL_TEXTURE2);
 	glBindTexture(GL_TEXTURE_2D, myTextureManager->getTextureID("gallery_wall_texture"));
-
-	const int painting_texture_offset = 3;
-
-	// Bind painting textures.
-	buffer_idx = get_buffer_idx_from_room_number(n);
-	glActiveTexture(GL_TEXTURE3);
-	if (this->art_manager->is_bound(buffer_idx)) {
-		glBindTexture(GL_TEXTURE_2D, this->art_manager->get_texture_id(buffer_idx));
-	} else {
-		glBindTexture(GL_TEXTURE_2D, myTextureManager->getTextureID("gallery_floor_texture"));
-	}
-
-	buffer_idx = get_buffer_idx_from_room_number(n - 1);
-	glActiveTexture(GL_TEXTURE4);
-	if (this->art_manager->is_bound(buffer_idx)) {
-		glBindTexture(GL_TEXTURE_2D, this->art_manager->get_texture_id(buffer_idx));
-	} else {
-		glBindTexture(GL_TEXTURE_2D, myTextureManager->getTextureID("gallery_floor_texture"));
-	}
-
-	buffer_idx = get_buffer_idx_from_room_number(n + 1);
-	glActiveTexture(GL_TEXTURE5);
-	if (this->art_manager->is_bound(buffer_idx)) {
-		glBindTexture(GL_TEXTURE_2D, this->art_manager->get_texture_id(buffer_idx));
-	} else {
-		glBindTexture(GL_TEXTURE_2D, myTextureManager->getTextureID("gallery_floor_texture"));
+	const size_t painting_texture_offset = 3;
+	const unsigned int gl_texture_start = GL_TEXTURE3;
+	for (size_t ii = 0; ii < NUM_RENDERED_ROOMS; ++ii) {
+		const int room_number = current_room_number - NUM_ROOMS_AHEAD_TO_RENDER + static_cast<int>(ii);
+		const std::array<size_t, NUM_PAINTINGS_PER_ROOM> buffer_idxs = get_buffer_idxs_from_room_number(room_number);
+		for (size_t jj = 0; jj < NUM_PAINTINGS_PER_ROOM; ++jj) {
+			const size_t buffer_idx = buffer_idxs[jj];
+			const size_t painting_idx = NUM_PAINTINGS_PER_ROOM * ii + jj;
+			const size_t texture_num = painting_texture_offset + painting_idx;
+			glActiveTexture(get_gl_texture_id(texture_num));
+			if (this->art_manager->is_bound(buffer_idx)) {
+				glBindTexture(GL_TEXTURE_2D, this->art_manager->get_texture_id(buffer_idx));
+			} else {
+				glBindTexture(GL_TEXTURE_2D, myTextureManager->getTextureID("gallery_floor_texture"));
+			}
+		}
 	}
 
 	// GALLERY FLOOR ===========================================================
 	const GLuint gallery_floor_shader = myShaderManager->getShaderProgram("gallery_floor_shaders")->programID;
 	glUseProgram(gallery_floor_shader);
-
 	// Vertex stuff.
 	glUniformMatrix4fv(glGetUniformLocation(gallery_floor_shader, "myViewMatrix"), 1, false, glm::value_ptr(viewMatrix));
 	glUniformMatrix4fv(glGetUniformLocation(gallery_floor_shader, "myPerspectiveMatrix"), 1, false, glm::value_ptr(perspectiveMatrix));
-
 	glUniform1f(glGetUniformLocation(gallery_floor_shader, "PI"), PI);
 	glUniform1i(glGetUniformLocation(gallery_floor_shader, "texture_map"), 1);
 	glUniform1i(glGetUniformLocation(gallery_floor_shader, "environmentTextureMap"), 0);
 	glUniform1f(glGetUniformLocation(gallery_floor_shader, "textureBlend"), textureBlend);
-
 	// Diffuse lighting.
 	glUniform3fv(glGetUniformLocation(gallery_floor_shader, "lightPos"), 1,  glm::value_ptr(lightPos));
 	glUniform1i(glGetUniformLocation(gallery_floor_shader, "useDiffuse"), useDiffuse ? 1 : 0);
-
 	// Fog.
 	glUniform1f(glGetUniformLocation(gallery_floor_shader, "fog_start"), fog_start);
 	glUniform1f(glGetUniformLocation(gallery_floor_shader, "fog_end"), fog_end);
-
-	// Center room.
-	glUniformMatrix4fv(glGetUniformLocation(gallery_floor_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, n * floor_l))* M_floor));
-	cube_ply->renderVBO(gallery_floor_shader);
-
-	// -Z room.
-	glUniformMatrix4fv(glGetUniformLocation(gallery_floor_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, (n - 1) * floor_l)) * M_floor));
-	cube_ply->renderVBO(gallery_floor_shader);
-
-	// +Z room.
-	glUniformMatrix4fv(glGetUniformLocation(gallery_floor_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, (n + 1) * floor_l)) * M_floor));
-	cube_ply->renderVBO(gallery_floor_shader);
-
-	// -2Z room.
-	glUniformMatrix4fv(glGetUniformLocation(gallery_floor_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, (n - 2) * floor_l)) * M_floor));
-	cube_ply->renderVBO(gallery_floor_shader);
-
-	// +2Z room.
-	glUniformMatrix4fv(glGetUniformLocation(gallery_floor_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, (n + 2) * floor_l)) * M_floor));
-	cube_ply->renderVBO(gallery_floor_shader);
+	for (size_t ii = 0; ii < NUM_RENDERED_ROOMS; ++ii) {
+		const int room_number = current_room_number - NUM_ROOMS_AHEAD_TO_RENDER + static_cast<int>(ii);
+		glUniformMatrix4fv(glGetUniformLocation(gallery_floor_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_floor));
+		cube_ply->renderVBO(gallery_floor_shader);
+	}
 
 	// WALL ====================================================================
 	const GLuint gallery_wall_shader = myShaderManager->getShaderProgram("gallery_wall_shaders")->programID;
 	glUseProgram(gallery_wall_shader);
-
 	// Vertex stuff.
 	glUniformMatrix4fv(glGetUniformLocation(gallery_wall_shader, "myViewMatrix"), 1, false, glm::value_ptr(viewMatrix));
 	glUniformMatrix4fv(glGetUniformLocation(gallery_wall_shader, "myPerspectiveMatrix"), 1, false, glm::value_ptr(perspectiveMatrix));
-
 	glUniform1f(glGetUniformLocation(gallery_wall_shader, "PI"), PI);
 	glUniform1i(glGetUniformLocation(gallery_wall_shader, "texture_map"), 2);
 	glUniform1i(glGetUniformLocation(gallery_wall_shader, "environmentTextureMap"), 0);
 	glUniform1f(glGetUniformLocation(gallery_wall_shader, "textureBlend"), textureBlend);
-
 	// Diffuse lighting.
 	glUniform3fv(glGetUniformLocation(gallery_wall_shader, "lightPos"), 1,  glm::value_ptr(lightPos));
 	glUniform1i(glGetUniformLocation(gallery_wall_shader, "useDiffuse"), useDiffuse ? 1 : 0);
-
 	// Fog.
 	glUniform1f(glGetUniformLocation(gallery_wall_shader, "fog_start"), fog_start);
 	glUniform1f(glGetUniformLocation(gallery_wall_shader, "fog_end"), fog_end);
-
-	// Center room.
-	glUniformMatrix4fv(glGetUniformLocation(gallery_wall_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, n * floor_l))* M_wall));
-	cube_ply->renderVBO(gallery_wall_shader);
-
-	// -Z room.
-	glUniformMatrix4fv(glGetUniformLocation(gallery_wall_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, (n - 1) * floor_l)) * M_wall));
-	cube_ply->renderVBO(gallery_wall_shader);
-
-	// +Z room.
-	glUniformMatrix4fv(glGetUniformLocation(gallery_wall_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, (n + 1) * floor_l)) * M_wall));
-	cube_ply->renderVBO(gallery_wall_shader);
+	for (size_t ii = 0; ii < NUM_RENDERED_ROOMS; ++ii) {
+		const int room_number = current_room_number - NUM_ROOMS_AHEAD_TO_RENDER + static_cast<int>(ii);
+		glUniformMatrix4fv(glGetUniformLocation(gallery_wall_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_wall));
+		cube_ply->renderVBO(gallery_wall_shader);
+	}
 
 	// PAINTING ====================================================================
 	const GLuint painting_shader = myShaderManager->getShaderProgram("painting_shaders")->programID;
 	glUseProgram(painting_shader);
-
 	// Vertex stuff.
 	glUniformMatrix4fv(glGetUniformLocation(painting_shader, "myViewMatrix"), 1, false, glm::value_ptr(viewMatrix));
 	glUniformMatrix4fv(glGetUniformLocation(painting_shader, "myPerspectiveMatrix"), 1, false, glm::value_ptr(perspectiveMatrix));
-
 	glUniform1f(glGetUniformLocation(painting_shader, "PI"), PI);
 	glUniform1i(glGetUniformLocation(painting_shader, "environmentTextureMap"), 0);
 	glUniform1f(glGetUniformLocation(painting_shader, "textureBlend"), textureBlend);
-
 	// Diffuse lighting.
 	glUniform3fv(glGetUniformLocation(painting_shader, "lightPos"), 1,  glm::value_ptr(lightPos));
 	glUniform1i(glGetUniformLocation(painting_shader, "useDiffuse"), useDiffuse ? 1 : 0);
-
 	// Fog.
 	glUniform1f(glGetUniformLocation(painting_shader, "fog_start"), fog_start);
 	glUniform1f(glGetUniformLocation(painting_shader, "fog_end"), fog_end);
-
-	// -Z room.
-	glUniform1i(glGetUniformLocation(painting_shader, "room"), n - 1);
-	glUniform1i(glGetUniformLocation(painting_shader, "texture_map"), painting_texture_offset + 1);
-	glUniformMatrix4fv(glGetUniformLocation(painting_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, (n - 1) * floor_l)) * M_painting[0]));
-	cube_ply->renderVBO(painting_shader);
-	glUniformMatrix4fv(glGetUniformLocation(painting_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, (n - 1) * floor_l)) * M_painting[1]));
-	cube_ply->renderVBO(painting_shader);
-
-	// Center room.
-	glUniform1i(glGetUniformLocation(painting_shader, "room"), n);
-	glUniform1i(glGetUniformLocation(painting_shader, "texture_map"), painting_texture_offset);
-	glUniformMatrix4fv(glGetUniformLocation(painting_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, n * floor_l)) * M_painting[2]));
-	cube_ply->renderVBO(painting_shader);
-	glUniformMatrix4fv(glGetUniformLocation(painting_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, n * floor_l)) * M_painting[3]));
-	cube_ply->renderVBO(painting_shader);
-
-	// +Z room.
-	glUniform1i(glGetUniformLocation(painting_shader, "room"), n + 1);
-	glUniform1i(glGetUniformLocation(painting_shader, "texture_map"), painting_texture_offset + 2);
-	glUniformMatrix4fv(glGetUniformLocation(painting_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, (n + 1) * floor_l)) * M_painting[4]));
-	cube_ply->renderVBO(painting_shader);
-	glUniformMatrix4fv(glGetUniformLocation(painting_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, (n + 1) * floor_l)) * M_painting[5]));
-	cube_ply->renderVBO(painting_shader);
-
+	for (size_t ii = 0; ii < NUM_RENDERED_ROOMS; ++ii) {
+		const int room_number = current_room_number - NUM_ROOMS_AHEAD_TO_RENDER + static_cast<int>(ii);
+		glUniform1i(glGetUniformLocation(painting_shader, "room"), room_number);
+		for (size_t jj = 0; jj < NUM_PAINTINGS_PER_ROOM; ++jj) {
+			const size_t painting_idx = NUM_PAINTINGS_PER_ROOM * ii + jj;
+			glUniform1i(glGetUniformLocation(painting_shader, "texture_map"), static_cast<int>(painting_texture_offset + painting_idx));
+			glUniformMatrix4fv(glGetUniformLocation(painting_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_painting[painting_idx]));
+			cube_ply->renderVBO(painting_shader);
+		}
+	}
 
 	// ENVIRONMENT ==============================================================
 	const GLuint environment_shader = myShaderManager->getShaderProgram("environmentShaders")->programID;
 	glUseProgram(environment_shader);
-
-	//TODO: add variable binding
 	glUniformMatrix4fv(glGetUniformLocation(environment_shader, "myModelMatrix"), 1, false, glm::value_ptr(modelMatrix));
 	glUniformMatrix4fv(glGetUniformLocation(environment_shader, "myViewMatrix"), 1, false, glm::value_ptr(viewMatrix));
 	glUniformMatrix4fv(glGetUniformLocation(environment_shader, "myPerspectiveMatrix"), 1, false, glm::value_ptr(perspectiveMatrix));
 	glUniformMatrix4fv(glGetUniformLocation(environment_shader, "M"), 1, false, glm::value_ptr(M_environment));
-
 	// glUniform1f(glGetUniformLocation(environment_shader, "sphereScale"), 7.0);
 	// glUniform1f(glGetUniformLocation(environment_shader, "sphereRadius"), 0.5);
 	glUniform1f(glGetUniformLocation(environment_shader, "PI"), PI);
 	glUniform1i(glGetUniformLocation(environment_shader, "environmentTextureMap"), 0);
-
 	// Fog.
 	glUniform1f(glGetUniformLocation(environment_shader, "fog_start"), fog_start);
 	glUniform1f(glGetUniformLocation(environment_shader, "fog_end"), fog_end);
-
 	glUniform3fv(glGetUniformLocation(environment_shader, "lightPos"), 1,  glm::value_ptr(lightPos));
 	glUniform1i(glGetUniformLocation(environment_shader, "useDiffuse"), useDiffuse ? 1 : 0);
-
 	myEnvironmentPLY->renderVBO(environment_shader);
 }
 
@@ -455,23 +467,21 @@ void MyGLCanvas::set_eye_position(const glm::vec3& e) {
 	if (new_room_number != old_room_number) {
 		std::cout << "room change: " << old_room_number << " -> " << new_room_number << std::endl;
 		const int buffer_size = static_cast<int>(this->art_manager->get_buffer_size());
-		const int room_number_to_buffer = (
+		const int room_number_to_buffer = new_room_number + (
 			new_room_number > old_room_number
-			? new_room_number + 2
-			: new_room_number - 2
+			? NUM_ROOMS_AHEAD_TO_RENDER
+			: -NUM_ROOMS_AHEAD_TO_RENDER
 		);
-		const int buffer_idx = ((room_number_to_buffer % buffer_size) + buffer_size) % buffer_size;
-		std::cout << "loading to buffer " << buffer_idx << std::endl;
-		this->art_manager->set_buffer_idx(buffer_idx);
-
-		pid_t pid = fork();
-		if (pid == -1) {
-			std::cout << "fork failed" << std::endl;
-		} else if (pid == 0) {
-			this->art_manager->download_and_convert();
-			std::cout << "execvp failed somewhere" << std::endl;
-			exit(1);
+		const std::array<size_t, NUM_PAINTINGS_PER_ROOM> buffer_idxs = get_buffer_idxs_from_room_number(room_number_to_buffer);
+		this->art_manager->set_buffer_idxs(buffer_idxs);
+		for (size_t ii = 0; ii < NUM_PAINTINGS_PER_ROOM; ++ii) {
+			this->art_manager->set_should_download(ii);
 		}
+		std::cout << "loading to buffer idxs ";
+		for (size_t ii = 0; ii < NUM_PAINTINGS_PER_ROOM; ++ii) {
+			std::cout << buffer_idxs[ii] << ",";
+		}
+		std::cout << std::endl;
 	}
 
 	this->eyePosition = e;
