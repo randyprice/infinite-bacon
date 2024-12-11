@@ -27,6 +27,7 @@ enum CubePly {
 	GalleryFloor = 0,
 	GalleryWall,
 	Painting,
+	SideWallNE,
 	Max,
 };
 

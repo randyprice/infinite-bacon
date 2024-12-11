@@ -15,12 +15,11 @@ uniform mat4 myPerspectiveMatrix;
 uniform sampler2D texture_map;
 uniform float textureBlend;
 uniform float PI;
-uniform uint num_diffuse_lights;
-uniform vec3 diffuse_lights[2];
+uniform vec3 lightPos;
 uniform bool useDiffuse;
-uniform int room;
 uniform float fog_start;
 uniform float fog_end;
+uniform bool transparent;
 float quadratic(float A, float B, float C) {
     float d = pow(B, 2) - 4 * A * C;
     if (d < 0) {
@@ -85,21 +84,17 @@ vec2 cube_to_unit_square() {
 void main() {
     vec3 p_pw = vec3(myModelMatrix * vec4(fragPosition, 1.0));
     vec3 N_vw = normalize(vec3(transpose(inverse(myModelMatrix)) * vec4(fragNormal, 0.0)));
-    float d = 0.0f;
-    for (uint ii = 0u; ii < num_diffuse_lights; ++ii) {
-        vec3 L_vw = normalize(diffuse_lights[ii] - p_pw);
-        d = d + clamp(dot(N_vw, L_vw), 0.0f, 1.0f);
-    }
-    d = clamp(d, 0.0f, 1.0f);
+        vec3 L_vw = normalize(lightPos - p_pw);
+        float d = clamp(dot(N_vw, L_vw), 0.0, 1.0);
     vec2 uv = cube_to_unit_square();
     vec3 color = vec3(texture(texture_map, uv));
     float depth = -(myViewMatrix * vec4(p_pw, 1.0f)).z;
-    vec3 final_color = apply_fog(
+    vec3 final_color = d * apply_fog(
         color,
         depth,
         vec3(0.7, 0.7, 0.7),
         fog_start,
         fog_end
     );
-    outputColor = vec4(0.7 * d * final_color, 1.0f);
+    outputColor = vec4(final_color, 1.0f);
 }

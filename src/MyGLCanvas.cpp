@@ -17,8 +17,8 @@ MyGLCanvas::MyGLCanvas(int x, int y, int w, int h, const char* l) : Fl_Gl_Window
 
 	// eyePosition = glm::vec3(0.0f, 0.0f, 3.0f);
 	// lookatPoint = glm::vec3(0.0f, 0.0f, 0.0f);
-	eyePosition = glm::vec3(0.0f, 2.0f, 0.0f);
-	lookatPoint = glm::vec3(0.0f, 2.0f, 1.0f);
+	eyePosition = glm::vec3(0.0f, 2.0f, 1.0f);
+	lookatPoint = glm::vec3(0.0f, 2.0f, 2.0f);
 	lookVec = glm::normalize(lookatPoint - eyePosition);
 	rotVec = glm::vec3(0.0f, 0.0f, 0.0f);
 	upVec = glm::vec3(0.0f, 1.0f, 0.0f);
@@ -47,6 +47,7 @@ MyGLCanvas::MyGLCanvas(int x, int y, int w, int h, const char* l) : Fl_Gl_Window
 	cubes[CubePly::GalleryFloor] = new ply("./data/cube.ply");
 	cubes[CubePly::GalleryWall] = new ply("./data/cube.ply");
 	cubes[CubePly::Painting] = new ply("./data/cube.ply");
+	cubes[CubePly::SideWallNE] = new ply("./data/cube.ply");
 
 	myEnvironmentPLY = new ply("./data/sphere.ply");
 
@@ -110,6 +111,10 @@ void MyGLCanvas::initShaders() {
 	myShaderManager->addShaderProgram("painting_shaders", "shaders/330/painting.vert", "shaders/330/painting.frag");
 	cubes[CubePly::Painting]->buildArrays();
 	cubes[CubePly::Painting]->bindVBO(myShaderManager->getShaderProgram("painting_shaders")->programID);
+
+	myShaderManager->addShaderProgram("doorway_shaders", "shaders/330/doorway.vert", "shaders/330/doorway.frag");
+	cubes[CubePly::SideWallNE]->buildArrays();
+	cubes[CubePly::SideWallNE]->bindVBO(myShaderManager->getShaderProgram("doorway_shaders")->programID);
 }
 
 constexpr float ROOM_L = 10.0f;
@@ -321,17 +326,34 @@ void MyGLCanvas::drawScene() {
 	glm::mat4 T_wall = glm::translate(
 		glm::mat4(1.0f),
 		glm::vec3(
-			// (floor_w - wall_w) / 2.0f,
 			0.0f,
 			wall_h / 2.0f,
-			(floor_l - wall_l) / 2.0f
+			0.0f
 		)
 	);
 	glm::mat4 M_wall = T_wall * S_wall;
 
 	const float doorway_w = 0.2 * floor_l;
-	const float doorway_l = wall_l;
-	const float doorway_h = wall_h;
+	const float sidewall_w = (floor_l - doorway_w) / 2.0;
+	const float sidewall_l = wall_l;
+	const float sidewall_h = wall_h;
+	glm::mat4 S_sidewall = glm::scale(glm::mat4(1.0f), glm::vec3(sidewall_w, sidewall_h, sidewall_l));
+	glm::mat4 R_sidewall = glm::rotate(glm::mat4(1.0f), glm::radians(90.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	glm::mat4 T_sidewallNE = glm::translate(glm::mat4(1.0f), glm::vec3(-(floor_w - sidewall_l) / 2.0f, sidewall_h / 2.0f, -(floor_l - sidewall_w) / 2.0f));
+	glm::mat4 T_sidewallSE = glm::translate(glm::mat4(1.0f), glm::vec3(-(floor_w - sidewall_l) / 2.0f, sidewall_h / 2.0f, (floor_l - sidewall_w) / 2.0f));
+	glm::mat4 T_sidewallNW = glm::translate(glm::mat4(1.0f), glm::vec3((floor_w - sidewall_l) / 2.0f, sidewall_h / 2.0f, -(floor_l - sidewall_w) / 2.0f));
+	glm::mat4 T_sidewallSW = glm::translate(glm::mat4(1.0f), glm::vec3((floor_w - sidewall_l) / 2.0f, sidewall_h / 2.0f, (floor_l - sidewall_w) / 2.0f));
+	glm::mat4 M_sidewallNE = T_sidewallNE * R_sidewall * S_sidewall;
+	glm::mat4 M_sidewallSE = T_sidewallSE * R_sidewall * S_sidewall;
+	glm::mat4 M_sidewallNW = T_sidewallNW * R_sidewall * S_sidewall;
+	glm::mat4 M_sidewallSW = T_sidewallSW * R_sidewall * S_sidewall;
+
+	const float ceiling_l = floor_l;
+	const float ceiling_w = floor_w;
+	const float ceiling_h = wall_l;
+	glm::mat4 S_ceiling = glm::scale(glm::mat4(1.0f), glm::vec3(ceiling_w, ceiling_h, ceiling_l));
+	glm::mat4 T_ceiling = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, wall_h + ceiling_h / 2.0f, 0.0f));
+	glm::mat4 M_ceiling = T_ceiling * S_ceiling;
 
 	const int current_room_number = this->get_room_number(this->eyePosition);
 	const float painting_l = 0.1f;
@@ -382,6 +404,11 @@ void MyGLCanvas::drawScene() {
 		}
 	}
 
+	constexpr unsigned int num_diffuse_lights = 2;
+	glm::vec3 p_diffuse_light = glm::vec3(0.0f, 3.0f, 0.0f);
+	glm::mat4 M_diffuse_light1 = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, floor_l / 4.0f));
+	glm::mat4 M_diffuse_light2 = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -floor_l / 4.0f));
+
 	// ENVIRONMENT ==============================================================
 	const GLuint environment_shader = myShaderManager->getShaderProgram("environmentShaders")->programID;
 	glUseProgram(environment_shader);
@@ -411,13 +438,18 @@ void MyGLCanvas::drawScene() {
 	glUniform1i(glGetUniformLocation(gallery_floor_shader, "environmentTextureMap"), 0);
 	glUniform1f(glGetUniformLocation(gallery_floor_shader, "textureBlend"), textureBlend);
 	// Diffuse lighting.
-	glUniform3fv(glGetUniformLocation(gallery_floor_shader, "lightPos"), 1,  glm::value_ptr(lightPos));
 	glUniform1i(glGetUniformLocation(gallery_floor_shader, "useDiffuse"), useDiffuse ? 1 : 0);
 	// Fog.
 	glUniform1f(glGetUniformLocation(gallery_floor_shader, "fog_start"), fog_start);
 	glUniform1f(glGetUniformLocation(gallery_floor_shader, "fog_end"), fog_end);
+	glUniform1ui(glGetUniformLocation(gallery_floor_shader, "num_diffuse_lights"), num_diffuse_lights);
 	for (size_t ii = 0; ii < NUM_RENDERED_ROOMS; ++ii) {
 		const int room_number = current_room_number - NUM_ROOMS_AHEAD_TO_RENDER + static_cast<int>(ii);
+		glm::vec3 diffuse_lights[num_diffuse_lights] = {
+			glm::vec3(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_diffuse_light1 * glm::vec4(p_diffuse_light, 1.0f)),
+			glm::vec3(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_diffuse_light2* glm::vec4(p_diffuse_light, 1.0f)),
+		};
+		glUniform3fv(glGetUniformLocation(gallery_floor_shader, "diffuse_lights"), num_diffuse_lights,  glm::value_ptr(diffuse_lights[0]));
 		glUniformMatrix4fv(glGetUniformLocation(gallery_floor_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_floor));
 		cubes[CubePly::GalleryFloor]->renderVBO(gallery_floor_shader);
 	}
@@ -433,21 +465,35 @@ void MyGLCanvas::drawScene() {
 	glUniform1i(glGetUniformLocation(gallery_wall_shader, "environmentTextureMap"), 0);
 	glUniform1f(glGetUniformLocation(gallery_wall_shader, "textureBlend"), textureBlend);
 	// Diffuse lighting.
-	glUniform3fv(glGetUniformLocation(gallery_wall_shader, "lightPos"), 1,  glm::value_ptr(lightPos));
+	// glUniform3fv(glGetUniformLocation(gallery_wall_shader, "lightPos"), 1,  glm::value_ptr(test_light_pos));
 	glUniform1i(glGetUniformLocation(gallery_wall_shader, "useDiffuse"), useDiffuse ? 1 : 0);
+	glUniform1i(glGetUniformLocation(gallery_wall_shader, "transparent"), false);
 	// Fog.
 	glUniform1f(glGetUniformLocation(gallery_wall_shader, "fog_start"), fog_start);
 	glUniform1f(glGetUniformLocation(gallery_wall_shader, "fog_end"), fog_end);
-	// glDepthMask(GL_FALSE);
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+	glUniform1ui(glGetUniformLocation(gallery_wall_shader, "num_diffuse_lights"), num_diffuse_lights);
 	for (size_t ii = 0; ii < NUM_RENDERED_ROOMS; ++ii) {
 		const int room_number = current_room_number - NUM_ROOMS_AHEAD_TO_RENDER + static_cast<int>(ii);
+		glm::vec3 diffuse_lights[num_diffuse_lights] = {
+			glm::vec3(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_diffuse_light1 * glm::vec4(p_diffuse_light, 1.0f)),
+			glm::vec3(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_diffuse_light2* glm::vec4(p_diffuse_light, 1.0f)),
+		};
+		glUniform1ui(glGetUniformLocation(gallery_wall_shader, "num_diffuse_lights"), num_diffuse_lights);
+		glUniform3fv(glGetUniformLocation(gallery_wall_shader, "diffuse_lights"), num_diffuse_lights, glm::value_ptr(diffuse_lights[0]));
 		glUniformMatrix4fv(glGetUniformLocation(gallery_wall_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_wall));
 		cubes[CubePly::GalleryWall]->renderVBO(gallery_wall_shader);
+		glUniformMatrix4fv(glGetUniformLocation(gallery_wall_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_sidewallNE));
+		cubes[CubePly::GalleryWall]->renderVBO(gallery_wall_shader);
+		glUniformMatrix4fv(glGetUniformLocation(gallery_wall_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_sidewallSE));
+		cubes[CubePly::GalleryWall]->renderVBO(gallery_wall_shader);
+		glUniformMatrix4fv(glGetUniformLocation(gallery_wall_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_sidewallNW));
+		cubes[CubePly::GalleryWall]->renderVBO(gallery_wall_shader);
+		glUniformMatrix4fv(glGetUniformLocation(gallery_wall_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_sidewallSW));
+		cubes[CubePly::GalleryWall]->renderVBO(gallery_wall_shader);
+		glUniformMatrix4fv(glGetUniformLocation(gallery_wall_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_ceiling));
+		cubes[CubePly::GalleryWall]->renderVBO(gallery_wall_shader);
 	}
-	glDisable(GL_BLEND);
-	// glDepthMask(GL_TRUE);
 
 	// PAINTING ====================================================================
 	const GLuint painting_shader = myShaderManager->getShaderProgram("painting_shaders")->programID;
@@ -459,13 +505,19 @@ void MyGLCanvas::drawScene() {
 	glUniform1i(glGetUniformLocation(painting_shader, "environmentTextureMap"), 0);
 	glUniform1f(glGetUniformLocation(painting_shader, "textureBlend"), textureBlend);
 	// Diffuse lighting.
-	glUniform3fv(glGetUniformLocation(painting_shader, "lightPos"), 1,  glm::value_ptr(lightPos));
 	glUniform1i(glGetUniformLocation(painting_shader, "useDiffuse"), useDiffuse ? 1 : 0);
 	// Fog.
 	glUniform1f(glGetUniformLocation(painting_shader, "fog_start"), fog_start);
 	glUniform1f(glGetUniformLocation(painting_shader, "fog_end"), fog_end);
+	glUniform1ui(glGetUniformLocation(painting_shader, "num_diffuse_lights"), num_diffuse_lights);
 	for (size_t ii = 0; ii < NUM_RENDERED_ROOMS; ++ii) {
 		const int room_number = current_room_number - NUM_ROOMS_AHEAD_TO_RENDER + static_cast<int>(ii);
+		glm::vec3 diffuse_lights[num_diffuse_lights] = {
+			glm::vec3(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_diffuse_light1 * glm::vec4(p_diffuse_light, 1.0f)),
+			glm::vec3(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_diffuse_light2 * glm::vec4(p_diffuse_light, 1.0f)),
+		};
+		glUniform1ui(glGetUniformLocation(painting_shader, "num_diffuse_lights"), num_diffuse_lights);
+		glUniform3fv(glGetUniformLocation(painting_shader, "diffuse_lights"), num_diffuse_lights, glm::value_ptr(diffuse_lights[0]));
 		glUniform1i(glGetUniformLocation(painting_shader, "room"), room_number);
 		for (size_t jj = 0; jj < NUM_PAINTINGS_PER_ROOM; ++jj) {
 			const size_t painting_idx = NUM_PAINTINGS_PER_ROOM * ii + jj;
@@ -649,6 +701,9 @@ void MyGLCanvas::reloadShaders() {
 
 	myShaderManager->addShaderProgram("painting_shaders", "shaders/330/painting.vert", "shaders/330/painting.frag");
 	cubes[CubePly::Painting]->bindVBO(myShaderManager->getShaderProgram("painting_shaders")->programID);
+
+	myShaderManager->addShaderProgram("doorway_shaders", "shaders/330/doorway.vert", "shaders/330/doorway.frag");
+	cubes[CubePly::SideWallNE]->bindVBO(myShaderManager->getShaderProgram("doorway_shaders")->programID);
 
 	invalidate();
 }

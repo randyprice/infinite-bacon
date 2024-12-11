@@ -15,7 +15,9 @@ uniform float textureBlend;
 // uniform float sphereRadius;
 uniform float PI;
 
-uniform vec3 lightPos;
+uniform uint num_diffuse_lights;
+uniform vec3 diffuse_lights[2];
+
 uniform bool useDiffuse;
 
 uniform int room;
@@ -126,35 +128,45 @@ vec2 cube_to_unit_square() {
 
 }
 
+// // Function to compute the spotlight effect
+// float spotlightEffect(vec3 lightDir, vec3 normal, vec3 fragPos, Spotlight spotlight) {
+//     // Calculate the direction of the fragment relative to the light position
+//     vec3 toFrag = normalize(fragPos - spotlight.position);
+
+//     // Calculate the angle between the light's direction and the vector to the fragment
+//     float theta = dot(toFrag, normalize(-spotlight.direction));
+
+//     // Check if the fragment is within the spotlight's cone
+//     if (theta > spotlight.cutOff) {
+//         // Smooth step between the inner and outer cone to apply falloff
+//         float intensity = smoothstep(spotlight.outerCutOff, spotlight.cutOff, theta);
+
+//         // Calculate diffuse lighting contribution (Lambert's cosine law)
+//         float diff = max(dot(normal, toFrag), 0.0);
+
+//         // Spotlight contribution is the intensity of the light multiplied by the diffuse reflection
+//         return intensity * diff * spotlight.intensity;
+//     }
+
+//     // No lighting if the fragment is outside the spotlight's cone
+//     return 0.0;
+// }
+
+
 void main() {
 	// // Reflect onto environment to get environment color.
-    // vec3 e_pw = vec3(inverse(myViewMatrix) * inverse(myPerspectiveMatrix) * vec4(0.0, 0.0, 0.0, 1.0));
-    // vec3 p_pw = vec3(myModelMatrix * vec4(fragPosition, 1.0));
-    // vec3 I_vw = normalize(p_pw - e_pw);
-    // vec3 N_vw = normalize(vec3(transpose(inverse(myModelMatrix)) * vec4(fragNormal, 0.0)));
-    // vec3 R_vw = reflect(I_vw, N_vw);
-    // vec3 pi_pw = intersect_sphere(p_pw, R_vw);
-    // vec3 pi_po = pi_pw / sphereScale;
-    // vec2 env_uv = to_unit_square(pi_po);
-    // vec4 env_color = texture(environmentTextureMap, clamp(1 - env_uv, 0.0, 1.0));
+    vec3 p_pw = vec3(myModelMatrix * vec4(fragPosition, 1.0));
+    vec3 N_vw = normalize(vec3(transpose(inverse(myModelMatrix)) * vec4(fragNormal, 0.0)));
+    float d = 0.0f;
+    for (uint ii = 0u; ii < num_diffuse_lights; ++ii) {
+        vec3 L_vw = normalize(diffuse_lights[ii] - p_pw);
+        d = d + clamp(dot(N_vw, L_vw), 0.0f, 1.0f);
+    }
+    d = clamp(d, 0.0f, 1.0f);
 
-	// // Object color. Project onto sphere.
-    // vec2 obj_uv = to_unit_square(project_onto_sphere(fragPosition));
-    // vec4 obj_color = texture(objectTextureMap, clamp(vec2(obj_uv.x,obj_uv.y), 0.0, 1.0));
-
-	// // Diffuse.
-    // float d = 1.0;
-    // if (useDiffuse) {
-    //     vec3 L_vw = normalize(lightPos - p_pw);
-    //     d = clamp(dot(N_vw, L_vw), 0.0, 1.0);
-    // }
-
-    // outputColor = d * (textureBlend * obj_color + (1.0 - textureBlend) * env_color);
-    // outputColor = vec4(0.5, 0.2, 0.1, 1.0);
     vec2 uv = cube_to_unit_square();
-    vec3 color = vec3(texture(texture_map, vec2(1 - uv.x, 1 - uv.y)));
-    vec4 p_pw = myModelMatrix * vec4(fragPosition, 1.0);
-    float depth = -(myViewMatrix * p_pw).z;
+    vec3 color = vec3(texture(texture_map, uv));
+    float depth = -(myViewMatrix * vec4(p_pw, 1.0f)).z;
     vec3 final_color = apply_fog(
         color,
         depth,
@@ -162,13 +174,6 @@ void main() {
         fog_start,
         fog_end
     );
-    outputColor = vec4(final_color, 1.0);
-    // vec2 uv = cube_to_unit_square();
-    // // float c = (((room % 5) + 5) % 5) / 5.0;
-    // // outputColor = vec4(c, c, c, 1.0);
-    // outputColor = texture(texture_map, vec2(uv.x, 1 - uv.y));
-    // outputColor = vec4(uv, 1.0, 1.0);
-    // outputColor = vec4(fragNormal, 1.0);
-    // outputColor = vec4(fragNormal, 1.0);
-    // outputColor = vec4(1.0, 0.0, 0.0, 1.0);
+    outputColor = vec4(0.7 * d * final_color, 1.0f);
 }
+

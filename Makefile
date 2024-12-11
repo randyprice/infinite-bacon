@@ -11,10 +11,9 @@ SRC := $(wildcard $(SRC_DIR)/*.cpp)
 OBJ := $(patsubst %.cpp,%.o,$(patsubst $(SRC_DIR)/%,$(BIN_DIR)/%,$(SRC)))
 HDR := $(wildcard $(INC_DIR)/*.h)
 
-SHADERS_SRC := $(wildcard $(SHADERS_330_DIR)/*.vert) $(wildcard $(SHADERS_330_DIR)/*.frag)
+SHADERS_SRC := $(wildcard $(SHADERS_SRC_DIR)/*.vert) $(wildcard $(SHADERS_SRC_DIR)/*.frag)
+SHADERS_330 := $(patsubst $(SHADERS_SRC_DIR)/%,$(SHADERS_330_DIR)/%,$(SHADERS_SRC))
 SHADERS_INC := $(wildcard $(SHADERS_SRC_DIR)/*.glsl)
-SHADERS := $(SHADERS_SRC) $(SHADERS_INC)
-
 
 EXE := $(BIN_DIR)/$(PROJECT).out
 OS := $(shell uname)
@@ -58,7 +57,7 @@ debug: $(EXE)
 	@./$(EXE) d
 
 .PHONY: shaders
-shaders: $(SHADERS)
+shaders: $(SHADERS_330) $(SHADERS_INC)
 
 # @g++ -x c -E -P shaders/src/floor.frag -o shaders/src/floor-processed.frag
 # @echo "#version 330" | cat - shaders/src/floor-processed.frag > shaders/src/final-floor.frag

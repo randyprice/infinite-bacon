@@ -15,9 +15,7 @@ uniform float textureBlend;
 // uniform float sphereRadius;
 uniform float PI;
 
-uniform uint num_diffuse_lights;
-uniform vec3 diffuse_lights[2];
-
+uniform vec3 lightPos;
 uniform bool useDiffuse;
 
 uniform float fog_start;
@@ -130,24 +128,45 @@ vec2 cube_to_unit_square() {
 
 void main() {
 	// // Reflect onto environment to get environment color.
+    // vec3 e_pw = vec3(inverse(myViewMatrix) * inverse(myPerspectiveMatrix) * vec4(0.0, 0.0, 0.0, 1.0));
     vec3 p_pw = vec3(myModelMatrix * vec4(fragPosition, 1.0));
+    // vec3 I_vw = normalize(p_pw - e_pw);
     vec3 N_vw = normalize(vec3(transpose(inverse(myModelMatrix)) * vec4(fragNormal, 0.0)));
-    float d = 0.0f;
-    for (uint ii = 0u; ii < num_diffuse_lights; ++ii) {
-        vec3 L_vw = normalize(diffuse_lights[ii] - p_pw);
-        d = d + clamp(dot(N_vw, L_vw), 0.0f, 1.0f);
-    }
-    d = clamp(d, 0.0f, 1.0f);
+    // vec3 R_vw = reflect(I_vw, N_vw);
+    // vec3 pi_pw = intersect_sphere(p_pw, R_vw);
+    // vec3 pi_po = pi_pw / sphereScale;
+    // vec2 env_uv = to_unit_square(pi_po);
+    // vec4 env_color = texture(environmentTextureMap, clamp(1 - env_uv, 0.0, 1.0));
 
+	// // Object color. Project onto sphere.
+    // vec2 obj_uv = to_unit_square(project_onto_sphere(fragPosition));
+    // vec4 obj_color = texture(objectTextureMap, clamp(vec2(obj_uv.x,obj_uv.y), 0.0, 1.0));
+
+	// // Diffuse.
+    // float d = 1.0;
+    // if (useDiffuse) {
+        vec3 L_vw = normalize(lightPos - p_pw);
+        float d = clamp(dot(N_vw, L_vw), 0.0, 1.0);
+    // }
+
+    // outputColor = d * (textureBlend * obj_color + (1.0 - textureBlend) * env_color);
+    // outputColor = vec4(0.5, 0.2, 0.1, 1.0);
     vec2 uv = cube_to_unit_square();
     vec3 color = vec3(texture(texture_map, uv));
+    // vec4 p_pw = myModelMatrix * vec4(fragPosition, 1.0);
     float depth = -(myViewMatrix * vec4(p_pw, 1.0f)).z;
-    vec3 final_color = apply_fog(
+    vec3 final_color = d * apply_fog(
         color,
         depth,
         vec3(0.7, 0.7, 0.7),
         fog_start,
         fog_end
     );
-    outputColor = vec4(0.7 * d * final_color, 1.0f);
+    outputColor = vec4(final_color, 1.0f);
+    // vec2 uv = cube_to_unit_square();
+    // outputColor = texture(texture_map, uv);
+    // outputColor = vec4(uv, 1.0, 1.0);
+    // outputColor = vec4(fragNormal, 1.0);
+    // outputColor = vec4(fragNormal, 1.0);
+    // outputColor = vec4(1.0, 0.0, 0.0, 1.0);
 }
