@@ -97,7 +97,10 @@ void MyGLCanvas::preprocess_shaders() {
 void MyGLCanvas::initShaders() {
 	myTextureManager->loadTexture("environMap", "./data/sphere-map-market.ppm");
 	myTextureManager->loadTexture("gallery_floor_texture", "./data/gallery-floor.ppm");
+	myTextureManager->loadTexture("gallery_floor_normal", "./data/gallery-floor-normal.ppm");
 	myTextureManager->loadTexture("gallery_wall_texture", "./data/gallery-wall.ppm");
+	myTextureManager->loadTexture("gallery_wall_normal", "./data/gallery-wall-normal.ppm");
+
 
 	this->preprocess_shaders();
 
@@ -117,9 +120,9 @@ void MyGLCanvas::initShaders() {
 	cubes[CubePly::Painting]->buildArrays();
 	cubes[CubePly::Painting]->bindVBO(myShaderManager->getShaderProgram("painting_shaders")->programID);
 
-	myShaderManager->addShaderProgram("doorway_shaders", "shaders/330/doorway.vert", "shaders/330/doorway.frag");
-	cubes[CubePly::SideWallNE]->buildArrays();
-	cubes[CubePly::SideWallNE]->bindVBO(myShaderManager->getShaderProgram("doorway_shaders")->programID);
+	// myShaderManager->addShaderProgram("doorway_shaders", "shaders/330/doorway.vert", "shaders/330/doorway.frag");
+	// cubes[CubePly::SideWallNE]->buildArrays();
+	// cubes[CubePly::SideWallNE]->bindVBO(myShaderManager->getShaderProgram("doorway_shaders")->programID);
 }
 
 constexpr float ROOM_L = 10.0f;
@@ -287,6 +290,15 @@ unsigned int get_gl_texture_id(const size_t num) {
 		case 19: return GL_TEXTURE19;
 		case 20: return GL_TEXTURE20;
 		case 21: return GL_TEXTURE21;
+		case 22: return GL_TEXTURE22;
+		case 23: return GL_TEXTURE23;
+		case 24: return GL_TEXTURE24;
+		case 25: return GL_TEXTURE25;
+		case 26: return GL_TEXTURE26;
+		case 27: return GL_TEXTURE27;
+		case 28: return GL_TEXTURE28;
+		case 29: return GL_TEXTURE29;
+
 		default: { std::cout << "texture num too big!" << std::endl; exit(1); }
 	}
 }
@@ -393,8 +405,12 @@ void MyGLCanvas::drawScene() {
 	glBindTexture(GL_TEXTURE_2D, myTextureManager->getTextureID("gallery_floor_texture"));
 	glActiveTexture(GL_TEXTURE2);
 	glBindTexture(GL_TEXTURE_2D, myTextureManager->getTextureID("gallery_wall_texture"));
-	const size_t painting_texture_offset = 3;
-	const unsigned int gl_texture_start = GL_TEXTURE3;
+	glActiveTexture(GL_TEXTURE3);
+	glBindTexture(GL_TEXTURE_2D, myTextureManager->getTextureID("gallery_floor_normal"));
+	glActiveTexture(GL_TEXTURE4);
+	glBindTexture(GL_TEXTURE_2D, myTextureManager->getTextureID("gallery_wall_normal"));
+	const size_t painting_texture_offset = 5;
+	const unsigned int gl_texture_start = GL_TEXTURE5;
 	for (size_t ii = 0; ii < NUM_RENDERED_ROOMS; ++ii) {
 		const int room_number = current_room_number - NUM_ROOMS_AHEAD_TO_RENDER + static_cast<int>(ii);
 		const std::array<size_t, NUM_PAINTINGS_PER_ROOM> buffer_idxs = get_buffer_idxs_from_room_number(room_number);
@@ -456,6 +472,7 @@ void MyGLCanvas::drawScene() {
 	glUniformMatrix4fv(glGetUniformLocation(gallery_floor_shader, "myPerspectiveMatrix"), 1, false, glm::value_ptr(perspectiveMatrix));
 	glUniform1f(glGetUniformLocation(gallery_floor_shader, "PI"), PI);
 	glUniform1i(glGetUniformLocation(gallery_floor_shader, "texture_map"), 1);
+	glUniform1i(glGetUniformLocation(gallery_floor_shader, "normal_map"), 3);
 	glUniform1i(glGetUniformLocation(gallery_floor_shader, "environmentTextureMap"), 0);
 	glUniform1f(glGetUniformLocation(gallery_floor_shader, "textureBlend"), textureBlend);
 	// Diffuse lighting.
@@ -492,6 +509,7 @@ void MyGLCanvas::drawScene() {
 	glUniformMatrix4fv(glGetUniformLocation(gallery_wall_shader, "myPerspectiveMatrix"), 1, false, glm::value_ptr(perspectiveMatrix));
 	glUniform1f(glGetUniformLocation(gallery_wall_shader, "PI"), PI);
 	glUniform1i(glGetUniformLocation(gallery_wall_shader, "texture_map"), 2);
+	glUniform1i(glGetUniformLocation(gallery_wall_shader, "normal_map"), 4);
 	glUniform1i(glGetUniformLocation(gallery_wall_shader, "environmentTextureMap"), 0);
 	glUniform1f(glGetUniformLocation(gallery_wall_shader, "textureBlend"), textureBlend);
 	// Diffuse lighting.
@@ -752,8 +770,8 @@ void MyGLCanvas::reloadShaders() {
 	myShaderManager->addShaderProgram("painting_shaders", "shaders/330/painting.vert", "shaders/330/painting.frag");
 	cubes[CubePly::Painting]->bindVBO(myShaderManager->getShaderProgram("painting_shaders")->programID);
 
-	myShaderManager->addShaderProgram("doorway_shaders", "shaders/330/doorway.vert", "shaders/330/doorway.frag");
-	cubes[CubePly::SideWallNE]->bindVBO(myShaderManager->getShaderProgram("doorway_shaders")->programID);
+	// myShaderManager->addShaderProgram("doorway_shaders", "shaders/330/doorway.vert", "shaders/330/doorway.frag");
+	// cubes[CubePly::SideWallNE]->bindVBO(myShaderManager->getShaderProgram("doorway_shaders")->programID);
 
 	invalidate();
 }

@@ -472,7 +472,6 @@ void ply::computeNormal(float x1, float y1, float z1,
 	//glNormal3f(cx, cy, cz);
 }
 
-
 /*  ===============================================
   Desc: Simple function that builds all of the arrays to be used
 		in vertex buffer objects.

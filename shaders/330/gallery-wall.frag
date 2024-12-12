@@ -1,6 +1,13 @@
 #version 330
 const float FOG_RGB = 0.6f;
 vec3 FOG_COLOR = vec3(0.6, 0.7, 0.9);
+const uint CUBE_SIDE_NEG_X = 0u;
+const uint CUBE_SIDE_POS_X = 1u;
+const uint CUBE_SIDE_NEG_Y = 2u;
+const uint CUBE_SIDE_POS_Y = 3u;
+const uint CUBE_SIDE_NEG_Z = 4u;
+const uint CUBE_SIDE_POS_Z = 5u;
+const uint CUBE_SIDE_MAX = 6u;
 vec3 apply_fog(vec3 color, float depth, vec3 fog_color, float start, float end) {
     start = min(start, end);
     float fog_factor = clamp((end - depth) / (end - start), 0.0, 1.0);
@@ -20,6 +27,64 @@ float get_spot_light_intensity(vec3 _light_pw, vec3 _light_vw, float _light_angl
         return pow(f, _light_exponent);
     }
 }
+uint get_cube_side(vec3 _normal) {
+    if (round(_normal.x) == -1) {
+        return CUBE_SIDE_NEG_X;
+    } else if (round(_normal.x) == 1) {
+        return CUBE_SIDE_POS_X;
+    } else if (round(_normal.y) == -1) {
+        return CUBE_SIDE_NEG_Y;
+    } else if (round(_normal.y) == 1) {
+        return CUBE_SIDE_POS_Y;
+    } else if (round(_normal.z) == -1) {
+        return CUBE_SIDE_NEG_Z;
+    } else if (round(_normal.z) == 1) {
+        return CUBE_SIDE_POS_Z;
+    } else {
+        return CUBE_SIDE_MAX;
+    }
+}
+vec3 get_cube_tangent(vec3 _n_vo) {
+    uint _cube_side = get_cube_side(_n_vo);
+    if (_cube_side == CUBE_SIDE_NEG_X) {
+        return vec3(0.0f, 0.0f, 1.0f);
+    } else if (_cube_side == CUBE_SIDE_POS_X) {
+        return vec3(0.0f, 0.0f, -1.0f);
+    } else if (_cube_side == CUBE_SIDE_NEG_Y) {
+        return vec3(1.0f, 0.0f, 0.0f);
+    } else if (_cube_side == CUBE_SIDE_POS_Y) {
+        return vec3(1.0f, 0.0f, 0.0f);
+    } else if (_cube_side == CUBE_SIDE_NEG_Z) {
+        return vec3(-1.0f, 0.0f, 0.0f);
+    } else if (_cube_side == CUBE_SIDE_POS_Z) {
+        return vec3(1.0f, 0.0f, 0.0f);
+    } else {
+        return vec3(0.0f, 0.0f, 0.0f);
+    }
+}
+vec2 cube_to_unit_square(vec3 _p_po, vec3 _n_vo) {
+    uint side = get_cube_side(_n_vo);
+    float l = 1.0f;
+    if (side == CUBE_SIDE_NEG_X) {
+        return vec2(_p_po.z + l / 2.0f, _p_po.y + l / 2.0f);
+    } else if (side == CUBE_SIDE_POS_X) {
+        return vec2(-_p_po.z + l / 2.0f, _p_po.y + l / 2.0f);
+    } else if (side == CUBE_SIDE_NEG_Y) {
+        return vec2(_p_po.x + l / 2.0f, _p_po.z + l / 2.0f);
+    } else if (side == CUBE_SIDE_POS_Y) {
+        return vec2(_p_po.x + l / 2.0f, -_p_po.z + l / 2.0f);
+    } else if (side == CUBE_SIDE_NEG_Z) {
+        return vec2(-_p_po.x + l / 2.0f, _p_po.y + l / 2.0f);
+    } else if (side == CUBE_SIDE_POS_Z) {
+        return vec2(_p_po.x + l / 2.0f, _p_po.y + l / 2.0f);
+    } else {
+        return vec2(0.0f, 0.0f);
+    }
+}
+mat3 get_tbn(vec3 _normal, vec3 _tangent) {
+    vec3 _bitangent = cross(_normal, _tangent);
+    return mat3(_tangent, _bitangent, _normal);
+}
 in vec3 fragPosition;
 in vec3 fragNormal;
 out vec4 outputColor;
@@ -27,6 +92,7 @@ uniform mat4 myModelMatrix;
 uniform mat4 myViewMatrix;
 uniform mat4 myPerspectiveMatrix;
 uniform sampler2D texture_map;
+uniform sampler2D normal_map;
 uniform float textureBlend;
 uniform float PI;
 uniform uint num_diffuse_lights;
@@ -57,53 +123,14 @@ float quadratic(float A, float B, float C) {
         return -1.0;
     }
 }
-const uint CUBE_SIDE_NEG_X = 0u;
-const uint CUBE_SIDE_POS_X = 1u;
-const uint CUBE_SIDE_NEG_Y = 2u;
-const uint CUBE_SIDE_POS_Y = 3u;
-const uint CUBE_SIDE_NEG_Z = 4u;
-const uint CUBE_SIDE_POS_Z = 5u;
-const uint CUBE_SIDE_MAX = 6u;
-uint get_cube_side() {
-    if (round(fragNormal.x) == -1) {
-        return CUBE_SIDE_NEG_X;
-    } else if (round(fragNormal.x) == 1) {
-        return CUBE_SIDE_POS_X;
-    } else if (round(fragNormal.y) == -1) {
-        return CUBE_SIDE_NEG_Y;
-    } else if (round(fragNormal.y) == 1) {
-        return CUBE_SIDE_POS_Y;
-    } else if (round(fragNormal.z) == -1) {
-        return CUBE_SIDE_NEG_Z;
-    } else if (round(fragNormal.z) == 1) {
-        return CUBE_SIDE_POS_Z;
-    } else {
-        return CUBE_SIDE_MAX;
-    }
-}
-vec2 cube_to_unit_square() {
-    uint side = get_cube_side();
-    float l = 1.0f;
-    vec3 p = fragPosition;
-    if (side == CUBE_SIDE_NEG_X) {
-        return vec2(p.z + l / 2.0f, p.y + l / 2.0f);
-    } else if (side == CUBE_SIDE_POS_X) {
-        return vec2(-p.z + l / 2.0f, p.y + l / 2.0f);
-    } else if (side == CUBE_SIDE_NEG_Y) {
-        return vec2(p.x + l / 2.0f, p.z + l / 2.0f);
-    } else if (side == CUBE_SIDE_POS_Y) {
-        return vec2(p.x + l / 2.0f, -p.z + l / 2.0f);
-    } else if (side == CUBE_SIDE_NEG_Z) {
-        return vec2(-p.x + l / 2.0f, p.y + l / 2.0f);
-    } else if (side == CUBE_SIDE_POS_Z) {
-        return vec2(p.x + l / 2.0f, p.y + l / 2.0f);
-    } else {
-        return vec2(0.0f, 0.0f);
-    }
-}
 void main() {
+    vec2 uv = cube_to_unit_square(fragPosition, fragNormal);
+    vec3 n_vt = 2.0f * texture(normal_map, vec2(uv.x, 2.0 * uv.y)).rgb - 1.0f;
+    vec3 t_vo = get_cube_tangent(fragNormal);
+    mat3 t2o = get_tbn(fragNormal, t_vo);
+    vec3 n_vo = normalize(t2o * n_vt);
     vec3 p_pw = vec3(myModelMatrix * vec4(fragPosition, 1.0));
-    vec3 N_vw = normalize(vec3(transpose(inverse(myModelMatrix)) * vec4(fragNormal, 0.0)));
+    vec3 N_vw = normalize(vec3(transpose(inverse(myModelMatrix)) * vec4(n_vo, 0.0)));
     float d = 0.0f;
     for (uint ii = 0u; ii < num_diffuse_lights; ++ii) {
         vec3 L_vw = normalize(diffuse_lights[ii] - p_pw);
@@ -113,8 +140,7 @@ void main() {
         d += get_spot_light_intensity(p_spot_lights[ii], v_spot_lights[ii], th_spot_light, e_spot_light, p_pw);
     }
     d = clamp(d, 0.0f, 1.0f);
-    vec2 uv = cube_to_unit_square();
-    vec3 color = vec3(texture(texture_map, uv));
+    vec3 color = vec3(texture(texture_map, vec2(uv.x, 2.0 * uv.y)));
     float depth = -(myViewMatrix * vec4(p_pw, 1.0f)).z;
     vec3 final_color = apply_fog(
         color,

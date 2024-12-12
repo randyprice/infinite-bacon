@@ -9,6 +9,7 @@ uniform mat4 myModelMatrix;
 uniform mat4 myViewMatrix;
 uniform mat4 myPerspectiveMatrix;
 uniform sampler2D texture_map;
+uniform sampler2D normal_map;
 // uniform sampler2D environmentTextureMap;
 uniform float textureBlend;
 // uniform float sphereScale;
@@ -85,59 +86,16 @@ float quadratic(float A, float B, float C) {
 //     return  p + t * d;
 // }
 
-const uint CUBE_SIDE_NEG_X = 0u;
-const uint CUBE_SIDE_POS_X = 1u;
-const uint CUBE_SIDE_NEG_Y = 2u;
-const uint CUBE_SIDE_POS_Y = 3u;
-const uint CUBE_SIDE_NEG_Z = 4u;
-const uint CUBE_SIDE_POS_Z = 5u;
-const uint CUBE_SIDE_MAX = 6u;
-
-uint get_cube_side() {
-    if (round(fragNormal.x) == -1) {
-        return CUBE_SIDE_NEG_X;
-    } else if (round(fragNormal.x) == 1) {
-        return CUBE_SIDE_POS_X;
-    } else if (round(fragNormal.y) == -1) {
-        return CUBE_SIDE_NEG_Y;
-    } else if (round(fragNormal.y) == 1) {
-        return CUBE_SIDE_POS_Y;
-    } else if (round(fragNormal.z) == -1) {
-        return CUBE_SIDE_NEG_Z;
-    } else if (round(fragNormal.z) == 1) {
-        return CUBE_SIDE_POS_Z;
-    } else {
-        return CUBE_SIDE_MAX;
-    }
-
-}
-
-vec2 cube_to_unit_square() {
-    uint side = get_cube_side();
-    float l = 1.0f;
-    vec3 p = fragPosition;
-    if (side == CUBE_SIDE_NEG_X) {
-        return vec2(p.z + l / 2.0f, p.y + l / 2.0f);
-    } else if (side == CUBE_SIDE_POS_X) {
-        return vec2(-p.z + l / 2.0f, p.y + l / 2.0f);
-    } else if (side == CUBE_SIDE_NEG_Y) {
-        return vec2(p.x + l / 2.0f, p.z + l / 2.0f);
-    } else if (side == CUBE_SIDE_POS_Y) {
-        return vec2(p.x + l / 2.0f, -p.z + l / 2.0f);
-    } else if (side == CUBE_SIDE_NEG_Z) {
-        return vec2(-p.x + l / 2.0f, p.y + l / 2.0f);
-    } else if (side == CUBE_SIDE_POS_Z) {
-        return vec2(p.x + l / 2.0f, p.y + l / 2.0f);
-    } else {
-        return vec2(0.0f, 0.0f);
-    }
-
-}
-
 void main() {
-	// // Reflect onto environment to get environment color.
+	// Normal map.
+    vec2 uv = cube_to_unit_square(fragPosition, fragNormal);
+    vec3 n_vt = 2.0f * texture(normal_map, vec2(uv.x, 2.0 * uv.y)).rgb - 1.0f;
+    vec3 t_vo = get_cube_tangent(fragNormal);
+    mat3 t2o = get_tbn(fragNormal, t_vo);
+    vec3 n_vo = normalize(t2o * n_vt);
+
     vec3 p_pw = vec3(myModelMatrix * vec4(fragPosition, 1.0));
-    vec3 N_vw = normalize(vec3(transpose(inverse(myModelMatrix)) * vec4(fragNormal, 0.0)));
+    vec3 N_vw = normalize(vec3(transpose(inverse(myModelMatrix)) * vec4(n_vo, 0.0)));
     float d = 0.0f;
     for (uint ii = 0u; ii < num_diffuse_lights; ++ii) {
         vec3 L_vw = normalize(diffuse_lights[ii] - p_pw);
@@ -147,9 +105,7 @@ void main() {
         d += get_spot_light_intensity(p_spot_lights[ii], v_spot_lights[ii], th_spot_light, e_spot_light, p_pw);
     }
     d = clamp(d, 0.0f, 1.0f);
-
-    vec2 uv = cube_to_unit_square();
-    vec3 color = vec3(texture(texture_map, uv));
+    vec3 color = vec3(texture(texture_map, vec2(uv.x, 2.0 * uv.y)));
     float depth = -(myViewMatrix * vec4(p_pw, 1.0f)).z;
     vec3 final_color = apply_fog(
         color,
