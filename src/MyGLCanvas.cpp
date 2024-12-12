@@ -340,7 +340,7 @@ void MyGLCanvas::drawScene() {
 
 	const float wall_l = 0.5f;
 	const float wall_w = 0.3 * floor_w;
-	const float wall_h = wall_w * 2.0;
+	const float wall_h = wall_w * 1.5;
 	glm::mat4 S_wall = glm::scale(glm::mat4(1.0f), glm::vec3(wall_w, wall_h, wall_l));
 	glm::mat4 T_wall = glm::translate(
 		glm::mat4(1.0f),
@@ -352,7 +352,7 @@ void MyGLCanvas::drawScene() {
 	);
 	glm::mat4 M_wall = T_wall * S_wall;
 
-	const float doorway_w = 0.2 * floor_l;
+	const float doorway_w = 0.0 * floor_l;
 	const float sidewall_w = (floor_l - doorway_w) / 2.0;
 	const float sidewall_l = wall_l;
 	const float sidewall_h = wall_h;
@@ -656,7 +656,7 @@ int MyGLCanvas::handle(int e) {
 	static int mouse_x;
 	static int mouse_y;
 	const float movement_speed = 0.2;
-	const float look_speed_mouse = 1.0f;
+	const float look_speed_mouse = 2.0f;
 	const float look_speed_key= 2.0f;
 	static int center_x = x() + w() / 2;
     static int center_y = y() + h() / 2;
