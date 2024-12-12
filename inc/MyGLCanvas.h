@@ -16,6 +16,7 @@
 #endif
 #include <FL/glut.H>
 #include <FL/glu.h>
+#include <GLFW/glfw3.h>
 
 #include "gfxDefs.h"
 #include "ply.h"
@@ -30,27 +31,6 @@ enum CubePly {
 	SideWallNE,
 	Max,
 };
-
-// class SharedData {
-// public:
-// 	SharedData(const size_t buffer_size) {
-// 		this->buffer_size = buffer_size;
-// 		this->loading = false;
-// 		this->buffer_idx = 0; // this tells MyGLCanvas which texture to load to in the buffer
-// 	}
-// 	size_t get_buffer_size() { return this->buffer_size; }
-// 	size_t get_buffer_idx() { return this->buffer_idx; }
-// 	void set_buffer_idx(const size_t buffer_idx) { this->buffer_idx = buffer_idx; }
-// 	bool is_loading() { return this->loading; }
-// 	void set_loading() { this->loading = true; }
-// 	void unset_loading() { this->loading = false; }
-
-// private:
-// 	int buffer_size;
-// 	bool loading;
-// 	size_t buffer_idx;
-// 	// char colors[5][4096 * 4096 * 3]
-// };
 
 class MyGLCanvas : public Fl_Gl_Window {
 public:
@@ -69,6 +49,11 @@ public:
 	// Fog.
 	float fog_start;
 	float fog_end;
+
+	// Lights.
+	float spot_light_angle_deg;
+	float spot_light_exponent;
+	glm::vec3 spot_light_lookat_mod;
 
 	int useDiffuse;
 	float lightAngle; //used to control where the light is coming from

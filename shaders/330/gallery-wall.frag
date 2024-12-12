@@ -1,10 +1,24 @@
 #version 330
-const float FOG_RGB = 0.0f;
-vec3 FOG_COLOR = vec3(FOG_RGB, FOG_RGB, FOG_RGB);
+const float FOG_RGB = 0.6f;
+vec3 FOG_COLOR = vec3(0.6, 0.7, 0.9);
 vec3 apply_fog(vec3 color, float depth, vec3 fog_color, float start, float end) {
     start = min(start, end);
     float fog_factor = clamp((end - depth) / (end - start), 0.0, 1.0);
     return mix(FOG_COLOR, color, fog_factor);
+}
+float get_spot_light_intensity(vec3 _light_pw, vec3 _light_vw, float _light_angle_rad, float _light_exponent, vec3 _surface_pw) {
+    vec3 D = _light_vw;
+    vec3 L = normalize(vec3(_light_pw - _surface_pw));
+    float f = dot(D, -1.0f * L);
+    if (f < 0.0f) {
+        return 0.0f;
+    }
+    float th = acos(f);
+    if (th > _light_angle_rad) {
+        return 0.0f;
+    } else {
+        return pow(f, _light_exponent);
+    }
 }
 in vec3 fragPosition;
 in vec3 fragNormal;
@@ -17,6 +31,11 @@ uniform float textureBlend;
 uniform float PI;
 uniform uint num_diffuse_lights;
 uniform vec3 diffuse_lights[2];
+uniform uint num_spot_lights;
+uniform vec3 p_spot_lights[2];
+uniform vec3 v_spot_lights[2];
+uniform float th_spot_light;
+uniform float e_spot_light;
 uniform bool useDiffuse;
 uniform float fog_start;
 uniform float fog_end;
@@ -90,6 +109,9 @@ void main() {
         vec3 L_vw = normalize(diffuse_lights[ii] - p_pw);
         d = d + clamp(dot(N_vw, L_vw), 0.0f, 1.0f);
     }
+    for (uint ii = 0u; ii < 2u; ++ii) {
+        d += get_spot_light_intensity(p_spot_lights[ii], v_spot_lights[ii], th_spot_light, e_spot_light, p_pw);
+    }
     d = clamp(d, 0.0f, 1.0f);
     vec2 uv = cube_to_unit_square();
     vec3 color = vec3(texture(texture_map, uv));
@@ -101,5 +123,5 @@ void main() {
         fog_start,
         fog_end
     );
-    outputColor = vec4(0.7 * d * final_color, 1.0f);
+    outputColor = vec4( d * final_color, 1.0f);
 }

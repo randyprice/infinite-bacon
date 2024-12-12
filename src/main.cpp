@@ -41,6 +41,10 @@ public:
 
 	Fl_Slider* fog_start_slider;
 	Fl_Slider* fog_end_slider;
+	Fl_Slider* spot_light_angle_slider;
+	Fl_Slider* spot_light_exponent_slider;
+	Fl_Slider* spot_light_lookat_mod_x_slider;
+	Fl_Slider* spot_light_lookat_mod_y_slider;
 
 	MyGLCanvas* canvas;
 
@@ -304,6 +308,43 @@ MyAppWindow::MyAppWindow(int W, int H, const char* L) : Fl_Window(W, H, L) {
 	fog_end_slider->step(1.0);
 	fog_end_slider->value(canvas->fog_end);
 	fog_end_slider->callback(floatCB, (void*)(&(canvas->fog_end)));
+
+	Fl_Box* spot_light_angle_text_box = new Fl_Box(0, 0, pack->w() - 20, 20, "spot_light_angle");
+	spot_light_angle_slider = new Fl_Value_Slider(0, 0, pack->w() - 20, 20, "");
+	spot_light_angle_slider->align(FL_ALIGN_TOP);
+	spot_light_angle_slider->type(FL_HOR_SLIDER);
+	spot_light_angle_slider->bounds(0.0, 180.0);
+	spot_light_angle_slider->step(1.0);
+	spot_light_angle_slider->value(canvas->spot_light_angle_deg);
+	spot_light_angle_slider->callback(floatCB, (void*)(&(canvas->spot_light_angle_deg)));
+
+	Fl_Box* spot_light_exponent_text_box = new Fl_Box(0, 0, pack->w() - 20, 20, "spot_light_exponent");
+	spot_light_exponent_slider = new Fl_Value_Slider(0, 0, pack->w() - 20, 20, "");
+	spot_light_exponent_slider->align(FL_ALIGN_TOP);
+	spot_light_exponent_slider->type(FL_HOR_SLIDER);
+	spot_light_exponent_slider->bounds(1.0, 100.0);
+	spot_light_exponent_slider->step(1.0);
+	spot_light_exponent_slider->value(canvas->spot_light_exponent);
+	spot_light_exponent_slider->callback(floatCB, (void*)(&(canvas->spot_light_exponent)));
+
+
+	Fl_Box* spot_light_lookat_x_text_box = new Fl_Box(0, 0, pack->w() - 20, 20, "spot_light_lookat_mod_x");
+	spot_light_lookat_mod_x_slider = new Fl_Value_Slider(0, 0, pack->w() - 20, 20, "");
+	spot_light_lookat_mod_x_slider->align(FL_ALIGN_TOP);
+	spot_light_lookat_mod_x_slider->type(FL_HOR_SLIDER);
+	spot_light_lookat_mod_x_slider->bounds(-10.0, 10.0);
+	spot_light_lookat_mod_x_slider->step(0.1);
+	spot_light_lookat_mod_x_slider->value(canvas->spot_light_lookat_mod.x);
+	spot_light_lookat_mod_x_slider->callback(floatCB, (void*)(&(canvas->spot_light_lookat_mod.x)));
+
+	Fl_Box* spot_light_lookat_y_text_box = new Fl_Box(0, 0, pack->w() - 20, 20, "spot_light_lookat_mod_y");
+	spot_light_lookat_mod_y_slider = new Fl_Value_Slider(0, 0, pack->w() - 20, 20, "");
+	spot_light_lookat_mod_y_slider->align(FL_ALIGN_TOP);
+	spot_light_lookat_mod_y_slider->type(FL_HOR_SLIDER);
+	spot_light_lookat_mod_y_slider->bounds(-10.0, 10.0);
+	spot_light_lookat_mod_y_slider->step(0.1);
+	spot_light_lookat_mod_y_slider->value(canvas->spot_light_lookat_mod.y);
+	spot_light_lookat_mod_y_slider->callback(floatCB, (void*)(&(canvas->spot_light_lookat_mod.y)));
 
 	packShaders->end();
 	packCol2->end();

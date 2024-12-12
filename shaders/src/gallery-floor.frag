@@ -17,6 +17,12 @@ uniform float PI;
 
 uniform bool useDiffuse;
 
+uniform uint num_spot_lights;
+uniform vec3 p_spot_lights[2];
+uniform vec3 v_spot_lights[2];
+uniform float th_spot_light;
+uniform float e_spot_light;
+
 uniform float fog_start;
 uniform float fog_end;
 
@@ -135,10 +141,13 @@ void main() {
         vec3 L_vw = normalize(diffuse_lights[ii] - p_pw);
         d = d + clamp(dot(N_vw, L_vw), 0.0f, 1.0f);
     }
+    for (uint ii = 0u; ii < num_spot_lights; ++ii) {
+        d += get_spot_light_intensity(p_spot_lights[ii], v_spot_lights[ii], th_spot_light, e_spot_light, p_pw);
+    }
     d = clamp(d, 0.0f, 1.0f);
 
     vec2 uv = cube_to_unit_square();
-    vec3 color = vec3(texture(texture_map, uv));
+    vec3 color = vec3(texture(texture_map, 3.0 * vec2(uv.y, uv.x)));
     float depth = -(myViewMatrix * vec4(p_pw, 1.0f)).z;
     vec3 final_color = apply_fog(
         color,

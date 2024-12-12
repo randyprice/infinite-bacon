@@ -133,7 +133,7 @@ void ArtManager::unbind(const size_t idx) {
 }
 
 void ArtManager::download_and_convert(const size_t ii) {
-    const char* args[] = {"python3", "./python/download-image.py", std::to_string(ii).c_str(), nullptr};
+    const char* args[] = {"python3", "./python/download-image3.py", std::to_string(ii).c_str(), nullptr};
     execvp("python3", (char* const*)args);
     std::cout << "execvp failed" << std::endl;
     exit(1);

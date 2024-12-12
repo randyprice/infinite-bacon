@@ -35,6 +35,11 @@ MyGLCanvas::MyGLCanvas(int x, int y, int w, int h, const char* l) : Fl_Gl_Window
 	fog_start = 10.0f;
 	fog_end = 15.0f;
 
+	// Lights.
+	spot_light_angle_deg = 20.0f;
+	spot_light_exponent = 1.0f;
+	spot_light_lookat_mod = glm::vec3(0.0f, 0.0f, 0.0f);
+
 	useDiffuse = false;
 
 	firstTime = true;
@@ -287,6 +292,8 @@ unsigned int get_gl_texture_id(const size_t num) {
 }
 
 void MyGLCanvas::drawScene() {
+	// glutWarpPointer(this->w() / 2, this->h() / 2);
+	// glfwSetCursorPos(this, this->w() / 2, this->h() / 2);
 	glEnable(GL_DEPTH_TEST);
 #if DO_DOWNLOAD
 	this->maybe_download_art();
@@ -404,10 +411,24 @@ void MyGLCanvas::drawScene() {
 		}
 	}
 
+	// LIGHTS ==================================================================
 	constexpr unsigned int num_diffuse_lights = 2;
 	glm::vec3 p_diffuse_light = glm::vec3(0.0f, 3.0f, 0.0f);
 	glm::mat4 M_diffuse_light1 = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, floor_l / 4.0f));
 	glm::mat4 M_diffuse_light2 = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, -floor_l / 4.0f));
+
+	constexpr unsigned int num_spot_lights = 2;
+	glm::vec3 p_spot_light = glm::vec3(0.0f, 3.0f, 0.0f);
+	glm::mat4 M_spot_light1 = M_diffuse_light1;
+	glm::mat4 M_spot_light2 = M_diffuse_light2;
+	glm::vec3 p_lookat_spot_light1 = glm::vec3(spot_light_lookat_mod.x, eyePosition.y + spot_light_lookat_mod.y, wall_l / 2.0f + painting_l);
+	glm::vec3 p_lookat_spot_light2 = glm::vec3(spot_light_lookat_mod.x, eyePosition.y + spot_light_lookat_mod.y, -(wall_l / 2.0f + painting_l));
+	glm::vec3 v_spot_lights[] = {
+		glm::normalize(p_lookat_spot_light1 - glm::vec3(M_spot_light1 * glm::vec4(p_spot_light, 1.0f))),
+		glm::normalize(p_lookat_spot_light2 - glm::vec3(M_spot_light2 * glm::vec4(p_spot_light, 1.0f)))
+	};
+
+	float th_spot_light = glm::radians(spot_light_angle_deg);
 
 	// ENVIRONMENT ==============================================================
 	const GLuint environment_shader = myShaderManager->getShaderProgram("environmentShaders")->programID;
@@ -442,14 +463,23 @@ void MyGLCanvas::drawScene() {
 	// Fog.
 	glUniform1f(glGetUniformLocation(gallery_floor_shader, "fog_start"), fog_start);
 	glUniform1f(glGetUniformLocation(gallery_floor_shader, "fog_end"), fog_end);
+
+	glUniform1ui(glGetUniformLocation(gallery_floor_shader, "num_spot_lights"), num_spot_lights);
+	glUniform3fv(glGetUniformLocation(gallery_floor_shader, "v_spot_lights"), num_spot_lights,  glm::value_ptr(v_spot_lights[0]));
+
 	glUniform1ui(glGetUniformLocation(gallery_floor_shader, "num_diffuse_lights"), num_diffuse_lights);
 	for (size_t ii = 0; ii < NUM_RENDERED_ROOMS; ++ii) {
 		const int room_number = current_room_number - NUM_ROOMS_AHEAD_TO_RENDER + static_cast<int>(ii);
 		glm::vec3 diffuse_lights[num_diffuse_lights] = {
 			glm::vec3(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_diffuse_light1 * glm::vec4(p_diffuse_light, 1.0f)),
-			glm::vec3(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_diffuse_light2* glm::vec4(p_diffuse_light, 1.0f)),
+			glm::vec3(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_diffuse_light2 * glm::vec4(p_diffuse_light, 1.0f)),
 		};
 		glUniform3fv(glGetUniformLocation(gallery_floor_shader, "diffuse_lights"), num_diffuse_lights,  glm::value_ptr(diffuse_lights[0]));
+		glm::vec3 p_spot_lights[num_spot_lights] = {
+			glm::vec3(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_spot_light1 * glm::vec4(p_spot_light, 1.0f)),
+			glm::vec3(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_spot_light2 * glm::vec4(p_spot_light, 1.0f)),
+		};
+		glUniform3fv(glGetUniformLocation(gallery_floor_shader, "p_spot_lights"), num_spot_lights,  glm::value_ptr(p_spot_lights[0]));
 		glUniformMatrix4fv(glGetUniformLocation(gallery_floor_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_floor));
 		cubes[CubePly::GalleryFloor]->renderVBO(gallery_floor_shader);
 	}
@@ -473,14 +503,24 @@ void MyGLCanvas::drawScene() {
 	glUniform1f(glGetUniformLocation(gallery_wall_shader, "fog_end"), fog_end);
 
 	glUniform1ui(glGetUniformLocation(gallery_wall_shader, "num_diffuse_lights"), num_diffuse_lights);
+
+	glUniform1ui(glGetUniformLocation(gallery_wall_shader, "num_spot_lights"), num_spot_lights);
+	glUniform3fv(glGetUniformLocation(gallery_wall_shader, "v_spot_lights"), num_spot_lights,  glm::value_ptr(v_spot_lights[0]));
+	glUniform1f(glGetUniformLocation(gallery_wall_shader, "th_spot_light"), th_spot_light);
+	glUniform1f(glGetUniformLocation(gallery_wall_shader, "e_spot_light"), spot_light_exponent);
+
 	for (size_t ii = 0; ii < NUM_RENDERED_ROOMS; ++ii) {
 		const int room_number = current_room_number - NUM_ROOMS_AHEAD_TO_RENDER + static_cast<int>(ii);
 		glm::vec3 diffuse_lights[num_diffuse_lights] = {
 			glm::vec3(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_diffuse_light1 * glm::vec4(p_diffuse_light, 1.0f)),
 			glm::vec3(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_diffuse_light2* glm::vec4(p_diffuse_light, 1.0f)),
 		};
-		glUniform1ui(glGetUniformLocation(gallery_wall_shader, "num_diffuse_lights"), num_diffuse_lights);
 		glUniform3fv(glGetUniformLocation(gallery_wall_shader, "diffuse_lights"), num_diffuse_lights, glm::value_ptr(diffuse_lights[0]));
+		glm::vec3 p_spot_lights[num_spot_lights] = {
+			glm::vec3(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_spot_light1 * glm::vec4(p_spot_light, 1.0f)),
+			glm::vec3(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_spot_light2 * glm::vec4(p_spot_light, 1.0f)),
+		};
+		glUniform3fv(glGetUniformLocation(gallery_wall_shader, "p_spot_lights"), num_spot_lights,  glm::value_ptr(p_spot_lights[0]));
 		glUniformMatrix4fv(glGetUniformLocation(gallery_wall_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_wall));
 		cubes[CubePly::GalleryWall]->renderVBO(gallery_wall_shader);
 		glUniformMatrix4fv(glGetUniformLocation(gallery_wall_shader, "myModelMatrix"), 1, false, glm::value_ptr(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_sidewallNE));
@@ -510,14 +550,24 @@ void MyGLCanvas::drawScene() {
 	glUniform1f(glGetUniformLocation(painting_shader, "fog_start"), fog_start);
 	glUniform1f(glGetUniformLocation(painting_shader, "fog_end"), fog_end);
 	glUniform1ui(glGetUniformLocation(painting_shader, "num_diffuse_lights"), num_diffuse_lights);
+
+	glUniform1ui(glGetUniformLocation(painting_shader, "num_spot_lights"), num_spot_lights);
+	glUniform3fv(glGetUniformLocation(painting_shader, "v_spot_lights"), num_spot_lights,  glm::value_ptr(v_spot_lights[0]));
+	glUniform1f(glGetUniformLocation(painting_shader, "th_spot_light"), th_spot_light);
+	glUniform1f(glGetUniformLocation(painting_shader, "e_spot_light"), spot_light_exponent);
+
 	for (size_t ii = 0; ii < NUM_RENDERED_ROOMS; ++ii) {
 		const int room_number = current_room_number - NUM_ROOMS_AHEAD_TO_RENDER + static_cast<int>(ii);
 		glm::vec3 diffuse_lights[num_diffuse_lights] = {
 			glm::vec3(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_diffuse_light1 * glm::vec4(p_diffuse_light, 1.0f)),
 			glm::vec3(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_diffuse_light2 * glm::vec4(p_diffuse_light, 1.0f)),
 		};
-		glUniform1ui(glGetUniformLocation(painting_shader, "num_diffuse_lights"), num_diffuse_lights);
 		glUniform3fv(glGetUniformLocation(painting_shader, "diffuse_lights"), num_diffuse_lights, glm::value_ptr(diffuse_lights[0]));
+		glm::vec3 p_spot_lights[num_spot_lights] = {
+			glm::vec3(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_spot_light1 * glm::vec4(p_spot_light, 1.0f)),
+			glm::vec3(glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 0.0f, room_number * floor_l)) * M_spot_light2 * glm::vec4(p_spot_light, 1.0f)),
+		};
+		glUniform3fv(glGetUniformLocation(painting_shader, "p_spot_lights"), num_spot_lights,  glm::value_ptr(p_spot_lights[0]));
 		glUniform1i(glGetUniformLocation(painting_shader, "room"), room_number);
 		for (size_t jj = 0; jj < NUM_PAINTINGS_PER_ROOM; ++jj) {
 			const size_t painting_idx = NUM_PAINTINGS_PER_ROOM * ii + jj;

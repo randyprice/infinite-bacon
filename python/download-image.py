@@ -8,6 +8,10 @@ import subprocess
 import requests
 from bs4 import BeautifulSoup
 
+HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+}
+
 BASE_URL = "https://www.wikiart.org"
 DATA_DIR = "./data"
 DOWNLOAD_DIR = DATA_DIR
@@ -22,11 +26,11 @@ def fetch_artwork_page(url):
     """
     Fetch the HTML content of an artwork page.
     """
-    response = requests.get(url)
+    response = requests.get(url, headers=HEADERS)
     if response.status_code == 200:
         return response.text
     else:
-        print(f"Failed to fetch page: {url}")
+        print(f"{response.status_code} failed to fetch page: {url}")
         return None
 
 def extract_image_and_navigation(html):
