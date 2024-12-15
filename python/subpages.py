@@ -1,5 +1,8 @@
 #! /usr/bin/env python3
 
+"""Guess at image URLs.
+"""
+
 import json
 import requests
 import time

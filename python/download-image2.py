@@ -1,4 +1,7 @@
 #! /usr/bin/env python3
+"""
+ChatGPT made this script. Works, but isn't extensible.
+"""
 
 import argparse
 import subprocess

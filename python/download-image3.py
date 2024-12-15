@@ -1,5 +1,9 @@
 #! /usr/bin/env python3
 
+""" I made this script using what ChatGPT taught me from the other two
+scripts.
+"""
+
 import argparse
 import random
 import subprocess

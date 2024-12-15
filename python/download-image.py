@@ -1,5 +1,9 @@
 #! /usr/bin/env python3
 
+"""ChatGPT made this script. Doesn't work anymore since WikiArt thinks
+I'm a bot.
+"""
+
 import argparse
 import json
 import os
