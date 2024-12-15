@@ -655,7 +655,7 @@ int MyGLCanvas::handle(int e) {
 	// std::cout << "event " << e << std::endl;
 	static int mouse_x;
 	static int mouse_y;
-	const float movement_speed = 0.2;
+	const float movement_speed = 0.1f;
 	const float look_speed_mouse = 2.0f;
 	const float look_speed_key= 2.0f;
 	static int center_x = x() + w() / 2;
